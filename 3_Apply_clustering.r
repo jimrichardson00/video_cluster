@@ -4,41 +4,98 @@ library(plot3D)
 library(rgl)
 library(plyr)
 library(stringr)
+library(NbClust)
+library(modeest)
+library(scatterplot3d)
 
 # sets working direcory as data directory
-setwd("/home/jim/Desktop/pca_video/data/")
+setwd("/home/jim/Desktop/video_cluster/data/")
 
-filenames_col <- list.files()
-head(filenames_col)
-length(filenames_col)
+DFO2013_SiiiTjjj_GP_Ffff_col <- list.files()
+head(DFO2013_SiiiTjjj_GP_Ffff_col)
+length(DFO2013_SiiiTjjj_GP_Ffff_col)
 
-filenames <- str_match(filenames_col, '(.+)_[a-z][a-z][a-z]\\.txt')[, 2]
-head(filenames)
-length(filenames)
+DFO2013_SiiiTjjj_GP_Ffff <- str_match(DFO2013_SiiiTjjj_GP_Ffff_col, '(.+)_[a-z][a-z][a-z]\\.txt')[, 2]
+head(DFO2013_SiiiTjjj_GP_Ffff)
+length(DFO2013_SiiiTjjj_GP_Ffff)
+DFO2013_SiiiTjjj_GP_Ffff_u <- sort(unique(DFO2013_SiiiTjjj_GP_Ffff))
+length(DFO2013_SiiiTjjj_GP_Ffff)
 
-filenames <- sort(unique(filenames))
-length(filenames)
+DFO2013_SiiiTjjj_GP <- str_match(DFO2013_SiiiTjjj_GP_Ffff_col, '(.+)_F[0-9][0-9][0-9][0-9]_[a-z][a-z][a-z]\\.txt')[, 2]
+head(DFO2013_SiiiTjjj_GP)
+length(DFO2013_SiiiTjjj_GP)
+DFO2013_SiiiTjjj_GP_u <- sort(unique(DFO2013_SiiiTjjj_GP))
+length(DFO2013_SiiiTjjj_GP_u)
 
-cols.m <- data.frame()
-for(filename in filenames) {
+na.omit(str_match(DFO2013_SiiiTjjj_GP_Ffff_col, paste(DFO2013_SiiiTjjj_GP[1], ".+", sep = "")))
 
-	red <- read.table(paste(filename, "_red.txt", sep = ""))
-	red <- as.matrix(red, ncol = 1)
-	red <- as.vector(red)
+# apply pca for each set and trap video
+i <- 1
+rep_frames <- vector()
+for(i in seq(1, length(DFO2013_SiiiTjjj_GP_u), 1)) {
 
-	gre <- read.table(paste(filename, "_gre.txt", sep = ""))
-	gre <- as.matrix(gre, ncol = 1)
-	gre <- as.vector(gre)
+	filenames <- na.omit(str_match(DFO2013_SiiiTjjj_GP_Ffff_u, paste(DFO2013_SiiiTjjj_GP_u[i], ".+", sep = "")))
+	filenames
 
-	blu <- read.table(paste(filename, "_blu.txt", sep = ""))
-	blu <- as.matrix(blu, ncol = 1)
-	blu <- as.vector(blu)
+	cols.m <- data.frame()
+	for(filename in filenames){
 
-	col <- c(red, gre, blu)
+		red <- read.table(paste(filename, "_red.txt", sep = ""))
+		red <- as.matrix(red, ncol = 1)
+		red <- as.vector(red)
 
-	cols.m <- rbind(cols.m, col)
+		gre <- read.table(paste(filename, "_gre.txt", sep = ""))
+		gre <- as.matrix(gre, ncol = 1)
+		gre <- as.vector(gre)
+
+		blu <- read.table(paste(filename, "_blu.txt", sep = ""))
+		blu <- as.matrix(blu, ncol = 1)
+		blu <- as.vector(blu)
+
+		col <- c(red, gre, blu)
+
+		cols.m <- rbind(cols.m, col)
+
+	}
+
+	# apply principal component analysis
+	pr <- prcomp(x = cols.m
+		,center=TRUE
+		,scale=TRUE
+		,retx=TRUE
+		)
+
+	# optimal number of cluster
+	NbClust <- NbClust(data = pr$x[, c("PC1", "PC2", "PC2")], method = 'ward.D2', min.nc = 1, max.nc = nrow(pr$x),
+		index = 'kl')
+	NbClust$Best.nc[1]
+
+	fit <- hclust(dist(pr$x[, c("PC1", "PC2", "PC2")]), method = 'ward.D2')
+	cl <- cutree(fit, k = NbClust$Best.nc[1])
+	cl <- as.numeric(cl)
+	cl
+
+	rep_frame <- filenames[cl == mfv(cl)][1]
+	rep_frames <- c(rep_frames, rep_frame)
+
+	# mode_pc1 <- pr$x[cl == mfv(cl), "PC1"][1]
+	# mode_pc2 <- pr$x[cl == mfv(cl), "PC2"][1]
+	# mode_pc3 <- pr$x[cl == mfv(cl), "PC3"][1]
+
+	# first two components
+	plot(pr$x[,c("PC1")], pr$x[,c("PC2")])
+	points(mode_pc1, mode_pc2, col = 'red')
+
+	# install rgl library
+	plot3d(pr$x[, c("PC1")], pr$x[, c("PC2")], pr$x[, c("PC3")])
+
+	# scatter 3d
+	sc <- scatterplot3d(pr$x[, c("PC1", "PC2", "PC2")])
+	sc$points3d(mode_pc1, mode_pc2, mode_pc3, col = 'red')
 
 }
+
+rep_frames
 
 # apply principal component analysis
 pr <- prcomp(x = cols.m
