@@ -10,7 +10,7 @@ import shutil
 from_dir = '/home/jim/Desktop/DFO Survey - October 2013 - copy/october 2013 video'
 to_dir = '/home/jim/Desktop/pca_video/video'
 
-def rename_video( from_dir, to_dir ):
+def rename_video( from_idx, from_dir, to_dir ):
 
   #sets empty lists to be used later for the files and folders in directory
   folders = []
@@ -66,7 +66,7 @@ def rename_video( from_dir, to_dir ):
       shutil.copy(filename_path, to_dir)
 
       # new filename
-      NewFilename = 'DFO2013' + '_' + 'S' + str(Set) + 'T' + str(Trap) + '_' + str(filename)
+      NewFilename = from_idx + '_' + 'S' + str(Set) + 'T' + str(Trap) + '_' + str(filename)
       print NewFilename
 
       # new filename path
@@ -112,14 +112,15 @@ def rename_video( from_dir, to_dir ):
 
 def main():
 
-  if len(sys.argv) != 3:
-    print 'usage: python 1_Rename_video.py from_dir to_dir'
+  if len(sys.argv) != 4:
+    print 'usage: python 1_Rename_video.py from_idx from_dir to_dir'
     sys.exit(1)
 
-  from_dir = sys.argv[1]
-  to_dir = sys.argv[2]
+  from_idx = sys.argv[1]
+  from_dir = sys.argv[2]
+  to_dir = sys.argv[3]
 
-  rename_video( from_dir, to_dir )
+  rename_video( from_idx, from_dir, to_dir )
   
   sys.exit(1)
 
