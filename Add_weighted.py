@@ -32,7 +32,6 @@ print rep_frames[0]
 
 img = cv2.imread(rep_frames[0])
 
-
 print len(rep_frames)
 
 count = 2;
