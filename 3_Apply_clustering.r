@@ -15,36 +15,17 @@ posVar <- function(data) {
 	unlist(want)
 }
 
-# sets working direcory as data directory
-setwd("/home/jim/Desktop/video_cluster/")
-
-# apply pca for each set and trap video
-i <- 3
-rep_frames <- vector()
-setwd("/home/jim/Desktop/video_cluster/video")
-for(i in seq(1, length(list.files()), 1)) {
-
-	setwd("/home/jim/Desktop/video_cluster/video")
-	DFO2013_SiiiTjjj_GP <- str_match(sort(list.files())[i],'(.+)\\.MP4')[2]
-	DFO2013_SiiiTjjj_GP
-	setwd("/home/jim/Desktop/video_cluster/data/")
-
+extract_data <- function(DFO2013_SiiiTjjj_GP) {
 	setwd("/home/jim/Desktop/video_cluster/")
-	system(paste("python 2_Extract_data.py"," ", DFO2013_SiiiTjjj_GP, ".MP4", sep = ""))
+	system(paste("python 2_Extract_data.py ", DFO2013_SiiiTjjj_GP, ".MP4", sep = ""))
+}
+
+rep_frm <- function(DFO2013_SiiiTjjj_GP_Ffff_u) {
+
 	setwd("/home/jim/Desktop/video_cluster/data/")
-
-	na.omit(str_match(list.files(), paste(DFO2013_SiiiTjjj_GP, '.+', '_[a-z][a-z][a-z]\\.txt', sep = "")))
-
-	DFO2013_SiiiTjjj_GP_Ffff <- str_match(list.files(), paste('(', DFO2013_SiiiTjjj_GP, '.+)', '_[a-z][a-z][a-z]\\.txt', sep = ""))[, 2]
-	DFO2013_SiiiTjjj_GP_Ffff_u <- sort(unique(na.omit(DFO2013_SiiiTjjj_GP_Ffff)))
 
 	cols.m <- data.frame()
-	filename <- DFO2013_SiiiTjjj_GP_Ffff_u[i]
 	for(filename in DFO2013_SiiiTjjj_GP_Ffff_u){
-
-		filename
-
-		getwd()
 
 		red <- read.table(paste(filename, "_red.txt", sep = ""))
 		red <- as.matrix(red, ncol = 1)
@@ -61,7 +42,6 @@ for(i in seq(1, length(list.files()), 1)) {
 		col <- c(red, gre, blu)
 
 		cols.m <- rbind(cols.m, col)
-
 	}
 
 	cols.m <- cols.m[, posVar(cols.m)]
@@ -81,45 +61,60 @@ for(i in seq(1, length(list.files()), 1)) {
 
 	fit <- hclust(dist(pr$x[, c("PC1", "PC2", "PC2")]), method = 'ward.D2')
 	cl <- cutree(fit, k = NbClust$Best.nc[1])
-	cl <- cutree(fit, k = 5)
 	cl <- as.numeric(cl)
-	length(cl)
-	mfv(cl)
 
 	rep_frame <- DFO2013_SiiiTjjj_GP_Ffff_u[cl == mfv(cl)][1]
-	rep_frame
-	rep_frames <- c(rep_frames, rep_frame)
-
-	# mode_pc1 <- pr$x[cl == mfv(cl)[1], "PC1"][1]
-	# mode_pc2 <- pr$x[cl == mfv(cl)[1], "PC2"][1]
-	# mode_pc3 <- pr$x[cl == mfv(cl)[1], "PC3"][1]
-
-	# # first two components
-	# plot(pr$x[,c("PC1")], pr$x[,c("PC2")])
-	# points(mode_pc1, mode_pc2, col = 'red')
-
-	# # install rgl library
-	# plot3d(pr$x[, c("PC1")], pr$x[, c("PC2")], pr$x[, c("PC3")])
-
-	# # scatter 3d
-	# sc <- scatterplot3d(pr$x[, c("PC1", "PC2", "PC2")])
-	# sc$points3d(mode_pc1, mode_pc2, mode_pc3, col = 'red')
-
+	return(rep_frame)
 }
 
-setwd("/home/jim/Desktop/video_cluster/")
+# ----------------------------------------------------------------
+# copies videos into one folder with labels
+
+from_dirs <- c('/home/jim/Desktop/DFO Survey - October 2013 - copy/october 2013 video')
+from_idxs <- c("DF02013")
+to_dir <-  '/home/jim/Desktop/video_cluster/video'
+
+for(from_dir in from_dirs){
+	setwd("/home/jim/Desktop/video_cluster/")
+	system("python 1_Rename_video.py ",
+		"'", from_idx, "'", " ", 
+		"'", from_dir, "'", " ", 
+		"'", to_dir, "'", sep = "")
+}
+
+# ----------------------------------------------------------------
+# extracts data from each video and pulls out representative frame
+
+setwd("/home/jim/Desktop/video_cluster/video")
+DFO2013_SiiiTjjj_GP_fns <- na.omit(str_match(list.files(), '(.+)\\.MP4'))[, 2]
+
+rep_frames <- vector()
+for(DFO2013_SiiiTjjj_GP in DFO2013_SiiiTjjj_GP_fns){
+
+	# extract_data(DFO2013_SiiiTjjj_GP)
+	
+	setwd("/home/jim/Desktop/video_cluster/data")
+	DFO2013_SiiiTjjj_GP_Ffff <- str_match(list.files(), paste('(', DFO2013_SiiiTjjj_GP, '.+)', '_[a-z][a-z][a-z]\\.txt', sep = ""))[, 2]
+	DFO2013_SiiiTjjj_GP_Ffff_u <- sort(unique(na.omit(DFO2013_SiiiTjjj_GP_Ffff)))
+
+	rep_frame <- rep_frm(DFO2013_SiiiTjjj_GP_Ffff_u)
+	rep_frames <- c(rep_frames, rep_frame)
+} 
+
 rep_frames
+
+setwd("/home/jim/Desktop/video_cluster/")
 write.csv(rep_frames, "rep_frames.csv")
 
 rep_frames <- read.csv("rep_frames.csv")
 rep_frames <- as.vector(rep_frames[, 2])
 rep_frames
 
-beep()
-
 # ----------------------------------------------------------------
+# clusters on rep_frames
 
 cols.m <- data.frame()
+setwd("/home/jim/Desktop/video_cluster/data/")
 for(DFO2013_SiiiTjjj_GP_Ffff_u in rep_frames){
 
 	red <- read.table(paste(DFO2013_SiiiTjjj_GP_Ffff_u, "_red.txt", sep = ""))
@@ -137,7 +132,6 @@ for(DFO2013_SiiiTjjj_GP_Ffff_u in rep_frames){
 	col <- c(red, gre, blu)
 
 	cols.m <- rbind(cols.m, col)
-
 }
 
 cols.m <- cols.m[, posVar(cols.m)]
@@ -158,10 +152,6 @@ summary(pr)
 # screeplot
 screeplot(pr)
 
-image_pc1 <- pr$rotation[, "PC1"]
-image_pc2 <- pr$rotation[, "PC2"]
-image_pc3 <- pr$rotation[, "PC3"]
-
 # first two components
 plot(pr$x[,c("PC1")], pr$x[,c("PC2")])
 
@@ -178,11 +168,11 @@ NbClust <- NbClust(data = x, min.nc = 2, max.nc = nrow(x) - 2,
 NbClust$Best.nc[1]
 
 # ----------------------------------------------------
-# hclust
+# applies hclust clustering
 
 # define distance and number of clusters
 dist <- dist(x, method = 'euclidean')
-k <- 9
+k <- 18
 
 # apply clustering algorithm
 fit <- hclust(dist, method = "ward.D2") 
@@ -207,10 +197,11 @@ dev.off()
 x$cluster <- cluster
 
 # --------------------------------------------------
+# applies kmeans clustering
 
 # define distance and number of clusters
 dist <- dist(x, method = 'euclidean')
-k <- 9
+k <- 18
 
 # apply clustering algorithm
 km <- kmeans(dist(x, method = 'euclidean'), centers = k) 
@@ -218,107 +209,71 @@ head(km)
 
 x$cluster <- km$cluster
 
-
 # ---------------------------------------------------
+# copies frames into cluster folders, and into rep_frames folder
 
+# writes data to .csv
 setwd('/home/jim/Desktop/video_cluster')
 write.csv(x, "x.csv")
 setwd('/home/jim/Desktop/video_cluster/data')
 
+# deletes rep_frames folder, then creates it (aviods overlap)
 setwd('/home/jim/Desktop/video_cluster/frames')
-rep_frame <- rep_frames[1]
-rep_frame
-cl <- unique(x$cluster)[1]
-
 system(paste('rm -r ', getwd(), '/', 'rep_frames', sep = ""))
 system(paste('mkdir ', getwd(), '/', 'rep_frames', sep = ""))
 
+# cycles through clusters
 for(cl in unique(x$cluster)){
 
+	# deletes cluster folder, then creates it (aviods overlap)
 	system(paste('rm -r ', getwd(), '/', cl, sep = ""))
 	system(paste('mkdir ', getwd(), '/', cl, sep = ""))
 
+	# subsets to rep_frames in cluster
 	rep_frames_c <- rep_frames[x$cluster == cl]
 	for(rep_frame in rep_frames_c){
+
+		# copies frame to cluster folder
 		system(paste('cp ', getwd(), '/', rep_frame, '.jpg', ' ', 
 			getwd(), '/', cl, sep = ''))
+		
+		# copies frame to rep_frames folder
 		system(paste('cp ', getwd(), '/', rep_frame, '.jpg', ' ', 
 			getwd(), '/', 'rep_frames', sep = ''))
 	}
 }
-
-setwd('/home/jim/Desktop/video_cluster/data')
-
-summ_x <- ddply(x, .(cluster), summarize, 
-	meanPC1 = mean(PC1),
-	meanPC2 = mean(PC2),
-	meanPC3 = mean(PC3))
-
-summ_x
 
 # ----------------------------------------
 # eigen traps
 
 setwd('/home/jim/Desktop/video_cluster/')
 
-image_pc1 <- pr$rotation[, "PC1"]
-image_pc2 <- pr$rotation[, "PC2"]
-image_pc3 <- pr$rotation[, "PC3"]
-
-m <- max(c(image_pc1, image_pc2, image_pc3))
+m <- max(pr$rotation[, seq(1, 3, 1)])
 m <- abs(m)
 m
 
 pr_rotation <- floor(255*pr$rotation/m)
-head(pr_rotation)
 
-# image_pc1 <- floor(255*pr_rotation[, "PC1"]/m)
-# image_pc2 <- floor(255*pr_rotation[, "PC2"]/m)
-# image_pc3 <- floor(255*pr_rotation[, "PC3"]/m)
-
-n <- length(image_pc1)/3
+n <- nrow(pr$rotation)/3
 n
 
-# red
+for(pc in seq(1, 10, 1)){
 
-image_pc1_red <- pr_rotation[seq(1, n, 1), "PC1"]
-image_pc2_red <- pr_rotation[seq(1, n, 1), "PC2"]
-image_pc3_red <- pr_rotation[seq(1, n, 1), "PC3"]
+	# red
+	image_pc_red <- pr_rotation[seq(1, n, 1), pc]
+	image_pc_red <- matrix(image_pc_red, ncol = 192, nrow = 108)
+	write.table(image_pc_red, paste("image_pc", pc, "_red.txt", sep = ""), col.names = FALSE, row.names = FALSE)
 
-image_pc1_red <- matrix(image_pc1_red, ncol = 192, nrow = 108)
-image_pc2_red <- matrix(image_pc2_red, ncol = 192, nrow = 108)
-image_pc3_red <- matrix(image_pc3_red, ncol = 192, nrow = 108)
+	# green
+	image_pc_gre <- pr_rotation[seq(n + 1, 2*n, 1), pc]
+	image_pc_gre <- matrix(image_pc_gre, ncol = 192, nrow = 108)
+	write.table(image_pc_gre, paste("image_pc", pc, "_gre.txt", sep = ""), col.names = FALSE, row.names = FALSE)
 
-# green
+	# blue
+	image_pc_blu <- pr_rotation[seq(2*n + 1, 3*n, 1), pc]
+	image_pc_blu <- matrix(image_pc_blu, ncol = 192, nrow = 108)
+	write.table(image_pc_blu, paste("image_pc", pc, "_blu.txt", sep = ""), col.names = FALSE, row.names = FALSE)
 
-image_pc1_gre <- pr_rotation[seq(n + 1, 2*n, 1), "PC1"]
-image_pc2_gre <- pr_rotation[seq(n + 1, 2*n, 1), "PC2"]
-image_pc3_gre <- pr_rotation[seq(n + 1, 2*n, 1), "PC3"]
+}
 
-image_pc1_gre <- matrix(image_pc1_gre, ncol = 192, nrow = 108)
-image_pc2_gre <- matrix(image_pc2_gre, ncol = 192, nrow = 108)
-image_pc3_gre <- matrix(image_pc3_gre, ncol = 192, nrow = 108)
-
-# blue
-
-image_pc1_blu <- pr_rotation[seq(2*n + 1, 3*n, 1), "PC1"]
-image_pc2_blu <- pr_rotation[seq(2*n + 1, 3*n, 1), "PC2"]
-image_pc3_blu <- pr_rotation[seq(2*n + 1, 3*n, 1), "PC3"]
-
-image_pc1_blu <- matrix(image_pc1_blu, ncol = 192, nrow = 108)
-image_pc2_blu <- matrix(image_pc2_blu, ncol = 192, nrow = 108)
-image_pc3_blu <- matrix(image_pc3_blu, ncol = 192, nrow = 108)
-
-# output
-
-write.table(image_pc1_red, "image_pc1_red.txt", col.names = FALSE, row.names = FALSE)
-write.table(image_pc2_red, "image_pc2_red.txt", col.names = FALSE, row.names = FALSE)
-write.table(image_pc3_red, "image_pc3_red.txt", col.names = FALSE, row.names = FALSE)
-
-write.table(image_pc1_gre, "image_pc1_gre.txt", col.names = FALSE, row.names = FALSE)
-write.table(image_pc2_gre, "image_pc2_gre.txt", col.names = FALSE, row.names = FALSE)
-write.table(image_pc3_gre, "image_pc3_gre.txt", col.names = FALSE, row.names = FALSE)
-
-write.table(image_pc1_blu, "image_pc1_blu.txt", col.names = FALSE, row.names = FALSE)
-write.table(image_pc2_blu, "image_pc2_blu.txt", col.names = FALSE, row.names = FALSE)
-write.table(image_pc3_blu, "image_pc3_blu.txt", col.names = FALSE, row.names = FALSE)
+system("python 4_Output_prcomp.py 10")
