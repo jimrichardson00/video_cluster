@@ -41,7 +41,7 @@ def extract_data( filename ):
       if f % 30 == 0:
 
         height, width, depth = image.shape
-        print height, width, depth
+        # print height, width, depth
 
         x1 = math.floor(Decimal(0.26041666666)*Decimal(width))
         y1 = math.floor(Decimal(0.55555555555)*Decimal(height))
