@@ -6,7 +6,6 @@ import re
 import shutil
 import sys
 import math
-
 from decimal import *
 getcontext().prec = 6
 
@@ -17,18 +16,6 @@ os.chdir(rep_dir)
 rep_frames = os.listdir(rep_dir)
 
 print rep_frames[0]
-
-# img1 = cv2.imread(rep_frames[0])
-# cv2.imshow('img1', img1)
-# cv2.waitKey()
-
-# img2 = cv2.imread(rep_frames[1])
-# cv2.imshow('img2', img2)
-# cv2.waitKey()
-
-# img = cv2.addWeighted(img1, 0.5, img2, 0.5, 0)
-# cv2.imshow('img', img)
-# cv2.waitKey()
 
 img = cv2.imread(rep_frames[0])
 
