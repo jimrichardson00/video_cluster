@@ -8,7 +8,6 @@ import sys
 import math
 from decimal import *
 
-
 video_dir = '/home/jim/Desktop/video_cluster/video'
 data_dir = '/home/jim/Desktop/video_cluster/data'
 frames_dir = '/home/jim/Desktop/video_cluster/frames'
