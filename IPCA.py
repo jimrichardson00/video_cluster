@@ -92,7 +92,10 @@ class IPCA(object):
         R = R[:,sorter]
 
         # Apply the rotation matrix
-        U = U*R       
+        U = U*R
+
+        # Write the observation in terms of the new eigenvectors
+        obs = U[:, 0:p].T*x
 
         # Select only p largest eigenvectors and values and update state
         self._n += 1.0
@@ -100,15 +103,28 @@ class IPCA(object):
         self._covariance = C
         self._eigenvectors = U[:, 0:p]
         self._eigenvalues = E[0:p]
+    @property
+    def mean(self):
+        """Returns a list with the appropriate variance along each principal
+        component.
+        """
+        return self._mean
 
     @property
-    def components(self):
+    def covariance(self):
+        """Returns a list with the appropriate variance along each principal
+        component.
+        """
+        return self._covariance
+
+    @property
+    def eigenvectors(self):
         """Returns a matrix with the current principal components as columns.
         """
         return self._eigenvectors
 
     @property
-    def variances(self):
+    def eigenvalues(self):
         """Returns a list with the appropriate variance along each principal
         component.
         """
@@ -120,24 +136,26 @@ def _is_zero(x):
     """
     return np.fabs(x).min() < _ZERO_THRESHOLD
 
+# def main():
 
 if __name__ == '__main__':
     import sys
 
-    def pca_svd(X):
-        X = X - X.mean(0).repeat(X.shape[0], 0)
-        [_, _, V] = np.linalg.svd(X)
-        return V
+# ----------------------------------------------
 
-    N = 1000
-    obs = np.matrix([np.random.normal(size=10) for _ in xrange(N)])
+    pca._m = m
+    pca._n = n
+    pca._p = p
+    pca._mean = mean
+    pca._covariance = covariance
+    pca._eigenvectors = eigenvectors
+    pca._eigenvalues = eigenvalues
 
-    V = pca_svd(obs)
-    print V[0:2]
+# ----------------------------------------------
 
-    pca = IPCA(obs.shape[1], 2)
-    for i in xrange(obs.shape[0]):
-        x = obs[i,:].transpose()
-        pca.update(x)
-    U = pca.components
-    print U
+    pca.update(x)
+
+    mean = pca.mean
+    covariance = pca.covariance
+    eigenvectors = pca.eigenvectors
+    eigenvalues = pca.eigenvalues
