@@ -1,4 +1,4 @@
-# library(dendextend)
+library(dendextend)
 library(dendroextras)
 library(plot3D)
 library(rgl)
@@ -8,6 +8,7 @@ library(NbClust)
 library(modeest)
 library(scatterplot3d)
 library(beepr)
+library(rPython)
 
 posVar <- function(data) {
 	out <- lapply(data, function(x) length(unique(x)))
@@ -85,37 +86,127 @@ for(from_dir in from_dirs){
 # ----------------------------------------------------------------
 # extracts data from each video and pulls out representative frame
 
+# rep_frames_cur = current rep frames
+if(file.exists('rep_frames_cur.txt') == TRUE){
+	rep_frames_cur <- read.table("rep_frames_cur.txt")
+	rep_frames_cur <- as.vector(rep_frames_cur$V1)
+	rep_frames_cur
+} else {
+	rep_frames_cur <- vector()
+}
+
+# rep_frame_vid = videos that have representative frames
+# videos that have representative frames
+rep_frames_vid <- unique(na.omit(str_match(rep_frames_cur, '(.+)_F.+')[, 2]))
+
+# list of videos to cluster on
 setwd("/home/jim/Desktop/video_cluster/video")
 DFO2013_SiiiTjjj_GP_fns <- na.omit(str_match(list.files(), '(.+)\\.MP4'))[, 2]
+DFO2013_SiiiTjjj_GP_fns
 
-rep_frames <- vector()
-for(DFO2013_SiiiTjjj_GP in DFO2013_SiiiTjjj_GP_fns){
+# new videos to calculate the representative frames for
+video_new <- DFO2013_SiiiTjjj_GP_fns[!(DFO2013_SiiiTjjj_GP_fns %in% rep_frames_vid)]
 
-	# extract_data(DFO2013_SiiiTjjj_GP)
-	
-	setwd("/home/jim/Desktop/video_cluster/data")
-	DFO2013_SiiiTjjj_GP_Ffff <- str_match(list.files(), paste('(', DFO2013_SiiiTjjj_GP, '.+)', '_[a-z][a-z][a-z]\\.txt', sep = ""))[, 2]
-	DFO2013_SiiiTjjj_GP_Ffff_u <- sort(unique(na.omit(DFO2013_SiiiTjjj_GP_Ffff)))
+# calculates new rep frames
+rep_frames_new <- vector()
+if(length(video_new) > 0){
+	for(DFO2013_SiiiTjjj_GP in video_new){
 
-	rep_frame <- rep_frm(DFO2013_SiiiTjjj_GP_Ffff_u)
-	rep_frames <- c(rep_frames, rep_frame)
-} 
+		extract_data(DFO2013_SiiiTjjj_GP)
+		
+		setwd("/home/jim/Desktop/video_cluster/data")
+		DFO2013_SiiiTjjj_GP_Ffff <- str_match(list.files(), paste('(', DFO2013_SiiiTjjj_GP, '.+)', '_[a-z][a-z][a-z]\\.txt', sep = ""))[, 2]
+		DFO2013_SiiiTjjj_GP_Ffff_u <- sort(unique(na.omit(DFO2013_SiiiTjjj_GP_Ffff)))
 
-rep_frames
+		rep_frame <- rep_frm(DFO2013_SiiiTjjj_GP_Ffff_u)
+		rep_frames_new <- c(rep_frames_new, rep_frame)
+	} 
+}
 
 setwd("/home/jim/Desktop/video_cluster/")
-write.csv(rep_frames, "rep_frames.csv")
+write(rep_frames_cur, "rep_frames_cur.txt")
 
-rep_frames <- read.csv("rep_frames.csv")
-rep_frames <- as.vector(rep_frames[, 2])
-rep_frames
+rep_frames_cur <- read.table("rep_frames_cur.txt", )
+rep_frames_cur <- as.vector(rep_frames_cur$V1)
+rep_frames_cur
 
 # ----------------------------------------------------------------
 # clusters on rep_frames
 
-cols.m <- data.frame()
+# rep_frames_new = new representative frames to add
+# rep_frames_cur = current representative frames that are already in the pca
+
+rep_frames_add <- rep
+
+# ----------------------------------------------------
+
+m = 10
+n = 1000
+p = 3
+python.assign("m", 10)
+python.assign("n", 1000)
+python.assign("p", 3)
+
+mean <- read.table('mean.txt')
+mean <- as.matrix(mean)
+colnames(mean) = NULL
+python.assign("mean", mean)
+python.exec('
+	import numpy
+	mean =  numpy.matrix(mean)')
+
+covariance <- read.table('covariance.txt')
+covariance <- as.matrix(covariance)
+colnames(covariance) = NULL
+python.assign("covariance", covariance)
+python.exec('
+	import numpy
+	covariance =  numpy.matrix(covariance)')
+
+eigenvectors <- read.table('eigenvectors.txt')
+eigenvectors <- as.matrix(eigenvectors)
+colnames(eigenvectors) = NULL
+python.assign("eigenvectors", eigenvectors)
+python.exec('print eigenvectors')
+python.exec('
+	import numpy
+	eigenvectors =  numpy.matrix(eigenvectors)')
+
+eigenvalues <- read.table('eigenvalues.txt')
+eigenvalues <- as.matrix(eigenvalues)
+colnames(eigenvalues) = NULL
+python.assign("eigenvalues", eigenvalues)
+python.exec('print eigenvalues')
+python.exec('
+	import numpy
+	eigenvalues =  numpy.matrix(eigenvalues)')
+
+i <- 1
+for(i in seq(1, 10, 1)){
+	python.assign("x", obs[i, ])
+	python.exec('
+	import numpy
+	x =  numpy.matrix(x)
+	x = x.transpose()')
+	python.load("IPCA.py")
+}
+
+python.exec("
+	import numpy
+	numpy.savetxt('eigenvectors.txt', eigenvectors)")
+
+
+eigenvectors <- read.table('eigenvectors.txt')
+eigenvectors <- as.matrix(eigenvectors)
+colnames(eigenvectors) = NULL
+eigenvectors
+
+t(t(eigenvectors) %*% t(obs[1:100, ]))
+
+# ----------------------------------------------------
+
 setwd("/home/jim/Desktop/video_cluster/data/")
-for(DFO2013_SiiiTjjj_GP_Ffff_u in rep_frames){
+for(DFO2013_SiiiTjjj_GP_Ffff_u in rep_frames_new){
 
 	red <- read.table(paste(DFO2013_SiiiTjjj_GP_Ffff_u, "_red.txt", sep = ""))
 	red <- as.matrix(red, ncol = 1)
@@ -131,15 +222,28 @@ for(DFO2013_SiiiTjjj_GP_Ffff_u in rep_frames){
 
 	col <- c(red, gre, blu)
 
-	cols.m <- rbind(cols.m, col)
+	col <- c(1, 2, 3)
+
+	python.assign("col", col)
+
+	setwd("/home/jim/Desktop/video_cluster/")
+
+	m <- 192*108
+    n <- 
+    p <- 2
+
+
 }
+
+
+
 
 cols.m <- cols.m[, posVar(cols.m)]
 
 # apply principal component analysis
 pr <- prcomp(x = cols.m
 	,center=TRUE
-	,scale=TRUE
+	,scale=FALSE
 	,retx=TRUE
 	)
 
@@ -159,7 +263,7 @@ plot(pr$x[,c("PC1")], pr$x[,c("PC2")])
 plot3d(pr$x[, c("PC1")], pr$x[, c("PC2")], pr$x[, c("PC3")])
 
 # pca matrix, first two principal components
-x <- pr$x[,seq(1, 10, 1)]
+x <- pr$x[,seq(1, 68, 1)]
 x <- as.data.frame(x)
 row.names(x) <- rep_frames
 
@@ -172,7 +276,7 @@ NbClust$Best.nc[1]
 
 # define distance and number of clusters
 dist <- dist(x, method = 'euclidean')
-k <- 18
+k <- 31
 
 # apply clustering algorithm
 fit <- hclust(dist, method = "ward.D2") 
@@ -199,15 +303,15 @@ x$cluster <- cluster
 # --------------------------------------------------
 # applies kmeans clustering
 
-# define distance and number of clusters
-dist <- dist(x, method = 'euclidean')
-k <- 18
+# # define distance and number of clusters
+# dist <- dist(x, method = 'euclidean')
+# k <- 31
 
-# apply clustering algorithm
-km <- kmeans(dist(x, method = 'euclidean'), centers = k) 
-head(km)
+# # apply clustering algorithm
+# km <- kmeans(dist(x, method = 'euclidean'), centers = k) 
+# head(km)
 
-x$cluster <- km$cluster
+# x$cluster <- km$cluster
 
 # ---------------------------------------------------
 # copies frames into cluster folders, and into rep_frames folder
@@ -245,6 +349,7 @@ for(cl in unique(x$cluster)){
 
 # ----------------------------------------
 # eigen traps
+n.pc <- 3
 
 setwd('/home/jim/Desktop/video_cluster/')
 
@@ -257,7 +362,7 @@ pr_rotation <- floor(255*pr$rotation/m)
 n <- nrow(pr$rotation)/3
 n
 
-for(pc in seq(1, 10, 1)){
+for(pc in seq(1, n.pc, 1)){
 
 	# red
 	image_pc_red <- pr_rotation[seq(1, n, 1), pc]
@@ -276,4 +381,4 @@ for(pc in seq(1, 10, 1)){
 
 }
 
-system("python 4_Output_prcomp.py 10")
+system(paste("python 4_Output_prcomp.py ", n.pc + 1, sep = ""))
