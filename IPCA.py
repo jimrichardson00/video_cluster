@@ -21,7 +21,7 @@ __author__ = "Micha Kalfon"
 
 import numpy as np
 
-_ZERO_THRESHOLD = 1e-9      # Everything below this is zero
+_ZERO_THRESHOLD = 1e-9  # Everything below this is zero
 
 
 class IPCA(object):
@@ -103,6 +103,7 @@ class IPCA(object):
         self._covariance = C
         self._eigenvectors = U[:, 0:p]
         self._eigenvalues = E[0:p]
+
     @property
     def mean(self):
         """Returns a list with the appropriate variance along each principal
@@ -136,14 +137,15 @@ def _is_zero(x):
     """
     return np.fabs(x).min() < _ZERO_THRESHOLD
 
-# def main():
-
 if __name__ == '__main__':
 
-    import sys
+  import sys
 
-# ----------------------------------------------
+  n = int(n)
 
+  pca = IPCA(m, p)
+
+  if n != 0:
     pca._m = m
     pca._n = n
     pca._p = p
@@ -152,11 +154,9 @@ if __name__ == '__main__':
     pca._eigenvectors = eigenvectors
     pca._eigenvalues = eigenvalues
 
-# ----------------------------------------------
+  pca.update(x)
 
-    pca.update(x)
-
-    mean = pca.mean
-    covariance = pca.covariance
-    eigenvectors = pca.eigenvectors
-    eigenvalues = pca.eigenvalues
+  mean = pca.mean
+  covariance = pca.covariance
+  eigenvectors = pca.eigenvectors
+  eigenvalues = pca.eigenvalues
