@@ -140,7 +140,6 @@ CCIPCA_SetTrap <- function(SetTrap, n_components, W, H, fast) {
 	return(t(framesData)[, rep_idx])
 }
 
-
 CCIPCA_RepFrames <- function(RepFrames_new, n_components, rerun) {
 
 	setwd("/home/jim/Desktop/video_cluster")
