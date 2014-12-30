@@ -9,46 +9,69 @@ import math
 from decimal import *
 getcontext().prec = 6
 
-rep_dir = '/home/jim/Desktop/video_cluster/frames/rep_frames'
-master_dir = '/home/jim/Desktop/video_cluster'
+def Add_weighted( video_dir, master_dir, W, H ):
 
-os.chdir(rep_dir)
-rep_frames = os.listdir(rep_dir)
+  os.chdir(video_dir)
+  video_files = os.listdir(video_dir)
 
-print rep_frames[0]
+  # define image_o
+  vidcap = cv2.VideoCapture(video_files[0])
+  success, image = vidcap.read()
 
-img = cv2.imread(rep_frames[0])
+  f = 0;
+  while success:
+    success, image = vidcap.read()
+    # takes the frame at the 10 second mark
+    if f == 30*10:
+      image_o = image
+      image_o = cv2.resize(image_o, (W, H))
+    f += 1
 
-print len(rep_frames)
+  # cycle through images
+  count = 2;
+  for video_file in video_files[1:len(video_files)-1]:
 
-count = 2;
-for rep_frame in rep_frames[1:70]:
+    #sets the full path of each folder
+    video_file_path = os.path.abspath(os.path.join(video_dir,video_file))
 
-  print rep_frame
+    #sets root and extension of each video_file
+    fileRoot, fileExtension = os.path.splitext(video_file_path)
 
-  img_r = cv2.imread(rep_frame)
+    if fileExtension == '.MP4':
 
+      # change working directory
+      os.chdir(video_dir)
+      vidcap = cv2.VideoCapture(video_file)
 
-  img = cv2.addWeighted(img, Decimal(1) - (Decimal(1)/Decimal(count)),
-   img_r, Decimal(1)/Decimal(count), 0)
+      success, image = vidcap.read()
 
-  # img1 = cv2.addWeighted(img, 0.5, img_r, 0.5, 0)
+      f = 0;
+      while success:
 
-  count = count + 1
+        success, image = vidcap.read()
+      
+        if f == 30*10:
 
-os.chdir(master_dir)
-cv2.imwrite('Overlay.jpg', img)
+          image = cv2.resize(image, (W, H))
 
-img2 = img
+          image_o = cv2.addWeighted(image_o, Decimal(1) - (Decimal(1)/Decimal(count)),
+          	image, Decimal(1)/Decimal(count), 0)
 
-# cv2.imshow('img', img2)
-# cv2.waitKey()
+        f += 1
 
-# img2[0:60, 50:192 - 50] = (0, 0, 0)
-# cv2.imshow('img', img2)
-# cv2.waitKey()
+    count = count + 1
 
-height, width, depth = img.shape
-print height, width, depth
+  os.chdir(master_dir)
 
-print math.floor(Decimal(0.253436)*Decimal(500))
+  cv2.imwrite('image_o' + str(count - 1).zfill(4) + '.jpg', image_o)
+  
+  height, width, depth = image_o.shape
+
+  x1 = math.floor(Decimal(0.26041666666)*Decimal(width))
+  x2 = math.floor(Decimal(0.73958333334)*Decimal(width))
+
+  y1 = 0
+  y2 = math.floor(Decimal(0.65555555555)*Decimal(height))
+
+  image_o[y1:y2, x1:x2] = (0, 0, 0)
+  cv2.imwrite('image_o' + str(count - 1).zfill(4) + '_floor.jpg', image_o)
