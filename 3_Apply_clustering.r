@@ -9,6 +9,16 @@ library(modeest)
 library(scatterplot3d)
 library(beepr)
 library(rPython)
+library(MASS)
+library(Hmisc)
+library(beepr)
+
+n_components = 100
+W = 192
+H = 108
+frames_dir = "/home/jim/Desktop/video_cluster/rep_frames"
+video_dir = "/home/jim/Desktop/video_cluster/video"
+master_dir = "/home/jim/Desktop/video_cluster"
 
 posVar <- function(data) {
 	out <- lapply(data, function(x) length(unique(x)))
@@ -21,363 +31,420 @@ extract_data <- function(DFO2013_SiiiTjjj_GP) {
 	system(paste("python 2_Extract_data.py ", DFO2013_SiiiTjjj_GP, ".MP4", sep = ""))
 }
 
-rep_frm <- function(DFO2013_SiiiTjjj_GP_Ffff_u) {
+CCIPCA_video <- function(video_file, n_components, W, H, fast) {
 
-	setwd("/home/jim/Desktop/video_cluster/data/")
+	setwd("/home/jim/Desktop/video_cluster/")
+	python.load("CCIPCA_video.py")
+	output <- python.call("CCIPCA_video", video_file, n_components, W, H, fast)
 
-	cols.m <- data.frame()
-	for(filename in DFO2013_SiiiTjjj_GP_Ffff_u){
+	framesData <- matrix(unlist(output[[1]]), ncol = 3*W*H, byrow = TRUE)
 
-		red <- read.table(paste(filename, "_red.txt", sep = ""))
-		red <- as.matrix(red, ncol = 1)
-		red <- as.vector(red)
+	if(fast == 0) {
 
-		gre <- read.table(paste(filename, "_gre.txt", sep = ""))
-		gre <- as.matrix(gre, ncol = 1)
-		gre <- as.vector(gre)
+		components_ <- matrix(unlist(output[[2]]), ncol = 3*W*H, byrow = TRUE)
 
-		blu <- read.table(paste(filename, "_blu.txt", sep = ""))
-		blu <- as.matrix(blu, ncol = 1)
-		blu <- as.vector(blu)
+		prx <- t(components_ %*% t(framesData))
 
-		col <- c(red, gre, blu)
+		# optimal number of cluster
+		NbClust <- NbClust(data = prx, 
+			method = 'kmeans', min.nc = 2, max.nc = nrow(prx) - 2,
+			index = 'ch')
+		NbClust
 
-		cols.m <- rbind(cols.m, col)
+		fit <- kmeans(prx, centers = NbClust$Best.nc[1])
+		cl <- fit$cluster
+
+		rep_idx <- seq(1, nrow(prx), by = 1)[cl == mfv(cl)][1]
+
+	} else {
+		rep_idx <- 1
 	}
+	return(t(framesData)[, rep_idx])
+}
 
-	cols.m <- cols.m[, posVar(cols.m)]
-	print(nrow(cols.m))
+setwd("/home/jim/Desktop/video_cluster/video")
+list.files()
+video_file <- "STRS2013_S004T014_GOPR0606.MP4"
+SetTrap <- str_match(video_file, "(.+)_GOPR(.+)")[, 2]
+SetTrap
 
-	# apply principal component analysis
-	pr <- prcomp(x = cols.m
-		,center=TRUE
-		,scale=TRUE
-		,retx=TRUE
-		)
+n_components = 20
+W = 192
+H = 108
+3*W*H
+
+CCIPCA_SetTrap <- function(SetTrap, n_components, W, H, fast) {
+
+	setwd("/home/jim/Desktop/video_cluster/")
+	python.load("CCIPCA_SetTrapVar.py")
+	output <- python.call("CCIPCA_SetTrapVar", video_file, n_components, W, H)
+	python.call("CCIPCA_SetTrapVar", video_file, n_components, W, H)
+	output
+	beep()
+
+	framesData[[1]]
+	components_[[1]]
+
+	framesData <- matrix(unlist(output[[1]]), ncol = 3*W*H, byrow = TRUE)
+	components_ <- matrix(unlist(output[[2]]), ncol = 3*W*H, byrow = TRUE)
+	video_files_frames <- output[[3]]
+	prx <- t(components_ %*% t(framesData))
+
+	nrow(prx)
+	ncol(prx)
 
 	# optimal number of cluster
-	NbClust <- NbClust(data = pr$x[, c("PC1", "PC2", "PC3")], 
-		method = 'complete', min.nc = 2, max.nc = nrow(pr$x) - 1,
-		index = 'ch')
+	# NbClust <- NbClust(data = prx[, 1:2], 
+	# 	method = 'kmeans', min.nc = 2, max.nc = nrow(prx) - 2,
+	# 	index = 'kl')
+	# NbClust <- NbClust$Best.nc[1]
+ 	NbClust <- round(sqrt(nrow(prx)/2), 0)
+ 	NbClust
 
-	fit <- hclust(dist(pr$x[, c("PC1", "PC2", "PC2")]), method = 'ward.D2')
-	cl <- cutree(fit, k = NbClust$Best.nc[1])
-	cl <- as.numeric(cl)
+	fit <- kmeans(prx, centers = NbClust)
+	clusters <- fit$cluster
+	clusters
 
-	rep_frame <- DFO2013_SiiiTjjj_GP_Ffff_u[cl == mfv(cl)][1]
-	return(rep_frame)
+	plot(prx[, 1:2], col = clusters)
+	points(fit$centers, pch = 16)
+	text(fit$centers[, 1:2], paste(unique(clusters)), pos = 2)
+	
+	plot3d(prx[, 1:3])
+
+	data = t(t(components_) %*% fit$centers[2, ])
+	fit$centers
+	ncol(components_)
+	nrow(components_)
+	
+	unique(clusters)[min(fit$withinss) == fit$withinss]
+
+	for(i in seq(1, length(video_files_frames), 1)) {		
+		name = paste(clusters[i], "_", video_files_frames[i], sep = "")
+		data = framesData[i, ]
+		dest_dir = frames_dir
+		W = 192
+		H = 108
+		Output_image(name, data, dest_dir, W, H)
+
+		name = paste(clusters[i], sep = "")
+		data = t(t(components_) %*% fit$centers[clusters[i], ])
+		dest_dir = frames_dir
+		W = 192
+		H = 108
+		Output_image(name, data, dest_dir, W, H)
+	}
+
+	rep_idx <- seq(1, nrow(prx), by = 1)[clusters == mfv(clusters)][1]
+	rep_idx
+
+	return(t(framesData)[, rep_idx])
+}
+
+
+CCIPCA_RepFrames <- function(RepFrames_new, n_components, rerun) {
+
+	setwd("/home/jim/Desktop/video_cluster")
+
+	RepFrames_new <- matrix(unlist(RepFrames_new[1:nrow(RepFrames_new),1:ncol(RepFrames_new)]), nrow = nrow(RepFrames_new), byrow = FALSE)
+
+	if(file.exists("ccipca.RData") == TRUE & rerun == FALSE) {
+
+		python.assign("n_components", n_components)  
+		python.assign("iteration", iteration) 
+		python.assign("amnesic", amnesic)
+		python.assign("copy", copy)  
+		python.assign("mean_", mean_)  
+		python.assign("components_", components_)  
+		python.assign("RepFrames_cur", RepFrames_cur)  
+		python.assign("video_files_cur", video_files_cur)  
+
+	}
+
+	python.assign("n_components", n_components)  
+	python.load("CCIPCA_RepFrames.py")
+	ccipca <- python.call("CCIPCA_RepFrames", RepFrames_new, n_components)
+	return(ccipca)
+
+}
+
+Output_image <- function(name, data, dest_dir, W, H) {
+
+	setwd("/home/jim/Desktop/video_cluster")
+
+	data <- as.vector(data)
+	N <- length(data)/3
+
+	blu = matrix(data[seq(1, 3*N, 3)], ncol = W, nrow = H, byrow = TRUE)
+	gre = matrix(data[seq(2, 3*N, 3)], ncol = W, nrow = H, byrow = TRUE)
+	red = matrix(data[seq(3, 3*N, 3)], ncol = W, nrow = H, byrow = TRUE)
+	
+	python.load("Output_image.py")
+	python.call("Output_image", name, red, gre, blu, dest_dir, W, H)
 }
 
 # ----------------------------------------------------------------
 # copies videos into one folder with labels
 
-from_dirs <- c('/home/jim/Desktop/DFO Survey - October 2013 - copy/october 2013 video')
-from_idxs <- c("DF02013")
-to_dir <-  '/home/jim/Desktop/video_cluster/video'
+from_dirs = c('/home/jim/Desktop/video_cluster/october 2013 video')
+from_idxs = c("STRS2013")
+to_dir =  '/home/jim/Desktop/video_cluster/video2'
 
-for(from_dir in from_dirs){
-	setwd("/home/jim/Desktop/video_cluster/")
-	system("python 1_Rename_video.py ",
-		"'", from_idx, "'", " ", 
-		"'", from_dir, "'", " ", 
-		"'", to_dir, "'", sep = "")
+for(i in seq(1, length(from_dirs),1 )) {
+	from_dir = from_dirs[i]
+	from_idx = from_idxs[i]
+	python.load("1_Rename_video.py")
+	python.call("Rename_video", from_idxs, from_dir, to_dir)
 }
+
+# ---------------------------------------------------------------
+# overlays frame from each video to see the max non trap area
+
+W = 192
+H = 108
+video_dir = "/home/jim/Desktop/video_cluster/video"
+master_dir = "/home/jim/Desktop/video_cluster"
+setwd(master_dir)
+python.load("Add_weighted.py")
+python.call("Add_weighted", video_dir, master_dir, W, H)
 
 # ----------------------------------------------------------------
 # extracts data from each video and pulls out representative frame
 
-# rep_frames_cur = current rep frames
-if(file.exists('rep_frames_cur.txt') == TRUE){
-	rep_frames_cur <- read.table("rep_frames_cur.txt")
-	rep_frames_cur <- as.vector(rep_frames_cur$V1)
-	rep_frames_cur
+# checks if there is a current ccipca file
+# and loads variables if there is:
+setwd(master_dir)
+if(file.exists("ccipca.RData") == TRUE) {
+
+	load("ccipca.RData")
+
+	n_components = ccipca[["n_components"]]
+	iteration = ccipca[["iteration"]] 
+	amnesic = ccipca[["amnesic"]] 
+	copy = ccipca[["copy"]] 
+	mean_ = ccipca[["mean_"]] 
+	components_ = ccipca[["components_"]] 
+	RepFrames_cur = ccipca[["RepFrames_cur"]] 
+	video_files_cur = ccipca[["video_files_cur"]]
+
 } else {
-	rep_frames_cur <- vector()
+	
+	RepFrames_cur <- data.frame()
+	video_files_cur <- vector()
+
 }
 
-# rep_frame_vid = videos that have representative frames
-# videos that have representative frames
-rep_frames_vid <- unique(na.omit(str_match(rep_frames_cur, '(.+)_F.+')[, 2]))
-
-# list of videos to cluster on
+# list of videos in video folder
 setwd("/home/jim/Desktop/video_cluster/video")
-DFO2013_SiiiTjjj_GP_fns <- na.omit(str_match(list.files(), '(.+)\\.MP4'))[, 2]
-DFO2013_SiiiTjjj_GP_fns
+video_files <- list.files()
+video_files
 
-# new videos to calculate the representative frames for
-video_new <- DFO2013_SiiiTjjj_GP_fns[!(DFO2013_SiiiTjjj_GP_fns %in% rep_frames_vid)]
+# defines new videos to be added
+video_files_new <- video_files[!(video_files %in% video_files_cur)]
+video_files_new
 
 # calculates new rep frames
-rep_frames_new <- vector()
-if(length(video_new) > 0){
-	for(DFO2013_SiiiTjjj_GP in video_new){
+video_file <- video_files_new[124]
+video_file
 
-		extract_data(DFO2013_SiiiTjjj_GP)
-		
-		setwd("/home/jim/Desktop/video_cluster/data")
-		DFO2013_SiiiTjjj_GP_Ffff <- str_match(list.files(), paste('(', DFO2013_SiiiTjjj_GP, '.+)', '_[a-z][a-z][a-z]\\.txt', sep = ""))[, 2]
-		DFO2013_SiiiTjjj_GP_Ffff_u <- sort(unique(na.omit(DFO2013_SiiiTjjj_GP_Ffff)))
-
-		rep_frame <- rep_frm(DFO2013_SiiiTjjj_GP_Ffff_u)
-		rep_frames_new <- c(rep_frames_new, rep_frame)
-	} 
+# cacluates the new rep frames matrix
+RepFrames_new <- matrix(NA, nrow = length(video_files_new), ncol = 3*H*W)
+if(nrow(RepFrames_new) > 0) {
+	for(i in seq(1, length(video_files_new), 1)) {
+		video_file <- video_files_new[i]
+		print(paste(video_file, " - ", i, sep = ""))
+		RepFrame <- CCIPCA_video(video_file = video_file, n_components = 10, W = W, H = H, fast = 0)
+		RepFrames_new[i, ] <- RepFrame
+	}
 }
 
-setwd("/home/jim/Desktop/video_cluster/")
-write(rep_frames_cur, "rep_frames_cur.txt")
+beep()
 
-rep_frames_cur <- read.table("rep_frames_cur.txt", )
-rep_frames_cur <- as.vector(rep_frames_cur$V1)
-rep_frames_cur
+nrow(RepFrames_new)
+ncol(RepFrames_new)
 
-# ----------------------------------------------------------------
-# clusters on rep_frames
+write.csv(RepFrames_new, "RepFrames_new.csv")
 
-# rep_frames_new = new representative frames to add
-# rep_frames_cur = current representative frames that are already in the pca
+# add new points to current pca
+n_components = 100
+ccipca_dict <- CCIPCA_RepFrames(RepFrames_new = RepFrames_new, n_components = 100, rerun = TRUE)
 
-rep_frames_add <- rep
-
-# ----------------------------------------------------
-
-m = 10
-n = 1000
-p = 3
-python.assign("m", 10)
-python.assign("n", 1000)
-python.assign("p", 3)
-
-mean <- read.table('mean.txt')
-mean <- as.matrix(mean)
-colnames(mean) = NULL
-python.assign("mean", mean)
-python.exec('
-	import numpy
-	mean =  numpy.matrix(mean)')
-
-covariance <- read.table('covariance.txt')
-covariance <- as.matrix(covariance)
-colnames(covariance) = NULL
-python.assign("covariance", covariance)
-python.exec('
-	import numpy
-	covariance =  numpy.matrix(covariance)')
-
-eigenvectors <- read.table('eigenvectors.txt')
-eigenvectors <- as.matrix(eigenvectors)
-colnames(eigenvectors) = NULL
-python.assign("eigenvectors", eigenvectors)
-python.exec('print eigenvectors')
-python.exec('
-	import numpy
-	eigenvectors =  numpy.matrix(eigenvectors)')
-
-eigenvalues <- read.table('eigenvalues.txt')
-eigenvalues <- as.matrix(eigenvalues)
-colnames(eigenvalues) = NULL
-python.assign("eigenvalues", eigenvalues)
-python.exec('print eigenvalues')
-python.exec('
-	import numpy
-	eigenvalues =  numpy.matrix(eigenvalues)')
-
-i <- 1
-for(i in seq(1, 10, 1)){
-	python.assign("x", obs[i, ])
-	python.exec('
-	import numpy
-	x =  numpy.matrix(x)
-	x = x.transpose()')
-	python.load("IPCA.py")
+# updated values
+n_components <- ccipca_dict[["n_components"]]  
+iteration <- ccipca_dict[["iteration"]]  
+amnesic <- ccipca_dict[["amnesic"]] 
+copy <- ccipca_dict[["copy"]]   
+mean_ <- ccipca_dict[["mean_"]]
+components_ <- matrix(unlist(ccipca_dict[["components_"]]), ncol = 3*W*H, byrow = TRUE)
+if(nrow(components_) < n_components) {
+	n_zeroes <- n_components - nrow(components_)
+	zeroes <- matrix(0, nrow = n_zeroes, ncol = 3*H*W)
+	components_ <- rbind(components_, zeroes)
 }
+RepFrames_cur <- rbind(RepFrames_cur, RepFrames_new)
+video_files_cur <- c(video_files_cur, video_files_new)
+prx <- t(components_ %*% t(RepFrames_cur))
 
-python.exec("
-	import numpy
-	numpy.savetxt('eigenvectors.txt', eigenvectors)")
+# update ccipca list with new values
+ccipca <- list()
+ccipca[["n_components"]] <- n_components  
+ccipca[["iteration"]] <- iteration 
+ccipca[["amnesic"]] <- amnesic
+ccipca[["copy"]] <- copy  
+ccipca[["mean_"]] <- mean_  
+ccipca[["components_"]] <- components_  
+ccipca[["RepFrames_cur"]] <- RepFrames_cur  
+ccipca[["video_files_cur"]] <- video_files_cur  
+ccipca[["prx"]] <- prx
 
-eigenvectors <- read.table('eigenvectors.txt')
-eigenvectors <- as.matrix(eigenvectors)
-colnames(eigenvectors) = NULL
-eigenvectors
+# write ccipca list to RData
+setwd("/home/jim/Desktop/video_cluster")
+save(ccipca, file = 'ccipca.RData')
 
-t(t(eigenvectors) %*% t(obs[1:100, ]))
+# -------------------------------------------------------
+# -------------------------------------------------------
 
-# ----------------------------------------------------
-
-setwd("/home/jim/Desktop/video_cluster/data/")
-for(DFO2013_SiiiTjjj_GP_Ffff_u in rep_frames_new){
-
-	red <- read.table(paste(DFO2013_SiiiTjjj_GP_Ffff_u, "_red.txt", sep = ""))
-	red <- as.matrix(red, ncol = 1)
-	red <- as.vector(red)
-
-	gre <- read.table(paste(DFO2013_SiiiTjjj_GP_Ffff_u, "_gre.txt", sep = ""))
-	gre <- as.matrix(gre, ncol = 1)
-	gre <- as.vector(gre)
-
-	blu <- read.table(paste(DFO2013_SiiiTjjj_GP_Ffff_u, "_blu.txt", sep = ""))
-	blu <- as.matrix(blu, ncol = 1)
-	blu <- as.vector(blu)
-
-	col <- c(red, gre, blu)
-
-	col <- c(1, 2, 3)
-
-	python.assign("col", col)
-
-	setwd("/home/jim/Desktop/video_cluster/")
-
-	m <- 192*108
-    n <- 
-    p <- 2
-
-
-}
-
-
-
-
-cols.m <- cols.m[, posVar(cols.m)]
-
-# apply principal component analysis
-pr <- prcomp(x = cols.m
-	,center=TRUE
-	,scale=FALSE
-	,retx=TRUE
-	)
-
-# biplot of pca
-# biplot(pr)
-
-# summary
-summary(pr)
-
-# screeplot
-screeplot(pr)
+# write ccipca list to RData
+setwd("/home/jim/Desktop/video_cluster")
+load(file = 'ccipca.RData')
 
 # first two components
-plot(pr$x[,c("PC1")], pr$x[,c("PC2")])
+plot(ccipca[["prx"]][, 1], ccipca[["prx"]][, 2])
 
 # install rgl library
-plot3d(pr$x[, c("PC1")], pr$x[, c("PC2")], pr$x[, c("PC3")])
+plot3d(ccipca[["prx"]][, 1:3])
 
 # pca matrix, first two principal components
-x <- pr$x[,seq(1, 68, 1)]
-x <- as.data.frame(x)
-row.names(x) <- rep_frames
+prx <- ccipca[["prx"]]
+prx <- as.data.frame(prx)
+row.names(prx) <- ccipca[["video_files_cur"]]
 
-NbClust <- NbClust(data = x, min.nc = 2, max.nc = nrow(x) - 2,
+NbClust <- NbClust(data = prx[, posVar(prx)], min.nc = 2, max.nc = nrow(prx) - 2,
  method = 'kmeans')
 NbClust$Best.nc[1]
+NbClust
 
 # ----------------------------------------------------
 # applies hclust clustering
 
+k = 5
+
+prx <- ccipca[["prx"]]
+prx <- as.data.frame(prx)
+row.names(prx) <- ccipca[["video_files_cur"]]
+
 # define distance and number of clusters
-dist <- dist(x, method = 'euclidean')
-k <- 31
+dist <- dist(prx[, c(1, 2)], method = 'euclidean')
 
 # apply clustering algorithm
-fit <- hclust(dist, method = "ward.D2") 
+fit <- hclust(dist, method = "average") 
 
 # pull out cluster names
-sl <- slice(fit,k=k)
+sl <- slice(fit, k = k)
 sl <- as.matrix(sl)
 sl <- as.data.frame(sl)
 sl$rn <- row.names(sl)
 sl <- sl[order(sl$rn),]
 
 # define cluster names
-cluster <- sl$V1
+clusters <- sl$V1
+clusters
 
 # create png of dendogram
-png("dendrogram.png", height=800, width=800)
-fit_col <- colour_clusters(as.dendrogram(fit), k=k, groupLabels = TRUE)
+png("dendrogram.png", height=H, width=W)
+fit_col <- colour_clusters(fit, k = k, groupLabels = TRUE)
 plot(fit_col)
 rect.dendrogram(fit_col, k = k, border = "red")
 dev.off()
 
-x$cluster <- cluster
+plot(prx[, c(1, 2)], col = clusters)
 
 # --------------------------------------------------
 # applies kmeans clustering
 
-# # define distance and number of clusters
-# dist <- dist(x, method = 'euclidean')
-# k <- 31
+prx <- ccipca[["prx"]]
+prx <- as.data.frame(prx)
+row.names(prx) <- ccipca[["video_files_cur"]]
 
-# # apply clustering algorithm
-# km <- kmeans(dist(x, method = 'euclidean'), centers = k) 
-# head(km)
+# 2d
+# define distance and number of clusters
+k <- 10
+# apply clustering algorithm
+km <- kmeans(prx[, c(1, 2)], centers = k) 
+clusters <- km$cluster
+plot(prx[, 1], prx[, 2], col = km$cluster)
+points(km$centers[, c(1, 2)], pch = 16)
 
-# x$cluster <- km$cluster
+clusters <- km$cluster
+
+# n_compenents d
+k <- 10
+km <- kmeans(ccipca[["prx"]], centers = k) 
+plot(ccipca[["prx"]][, 1], ccipca[["prx"]][, 2], col = km$cluster)
+points(km$centers[, c(1, 2)], pch = 16)
+
+clusters <- km$cluster
 
 # ---------------------------------------------------
 # copies frames into cluster folders, and into rep_frames folder
 
-# writes data to .csv
-setwd('/home/jim/Desktop/video_cluster')
-write.csv(x, "x.csv")
-setwd('/home/jim/Desktop/video_cluster/data')
-
 # deletes rep_frames folder, then creates it (aviods overlap)
-setwd('/home/jim/Desktop/video_cluster/frames')
-system(paste('rm -r ', getwd(), '/', 'rep_frames', sep = ""))
-system(paste('mkdir ', getwd(), '/', 'rep_frames', sep = ""))
+frame_dir = "/home/jim/Desktop/video_cluster/frames"
+master_dir = "/home/jim/Desktop/video_cluster"
+system(paste('rm -r ', master_dir, '/', 'rep_frames', sep = ""))
+system(paste('mkdir ', master_dir, '/', 'rep_frames', sep = ""))
 
 # cycles through clusters
-for(cl in unique(x$cluster)){
+for(cl in unique(clusters)){
+
+	print(cl)
 
 	# deletes cluster folder, then creates it (aviods overlap)
-	system(paste('rm -r ', getwd(), '/', cl, sep = ""))
-	system(paste('mkdir ', getwd(), '/', cl, sep = ""))
+	system(paste('rm -r ', master_dir, '/rep_frames/', cl, sep = ""))
+	system(paste('mkdir ', master_dir, '/rep_frames/', cl, sep = ""))
 
-	# subsets to rep_frames in cluster
-	rep_frames_c <- rep_frames[x$cluster == cl]
-	for(rep_frame in rep_frames_c){
+	names_cl <- ccipca[["video_files_cur"]][clusters == cl]
 
-		# copies frame to cluster folder
-		system(paste('cp ', getwd(), '/', rep_frame, '.jpg', ' ', 
-			getwd(), '/', cl, sep = ''))
-		
-		# copies frame to rep_frames folder
-		system(paste('cp ', getwd(), '/', rep_frame, '.jpg', ' ', 
-			getwd(), '/', 'rep_frames', sep = ''))
+	for(i in seq(1, sum(clusters == cl), 1)){
+
+		name = names_cl[i]
+		data = ccipca[["RepFrames_cur"]][clusters == cl, ][i, ]
+
+		dest_dir = "/home/jim/Desktop/video_cluster/rep_frames"
+		Output_image(name = name, data = data, dest_dir = dest_dir, W = W, H = H)
+
+		dest_dir = paste("/home/jim/Desktop/video_cluster/rep_frames/", cl, sep = "")
+		Output_image(name = name, data = data, dest_dir = dest_dir, W = W, H = H)
+
 	}
 }
 
+clusters
+plot(prx[, 1:2], col = clusters)
+
+
+beep()
+
 # ----------------------------------------
 # eigen traps
-n.pc <- 3
 
 setwd('/home/jim/Desktop/video_cluster/')
+load("ccipca.RData")
 
-m <- max(pr$rotation[, seq(1, 3, 1)])
-m <- abs(m)
-m
+n_pc <- 5
 
-pr_rotation <- floor(255*pr$rotation/m)
+pc <- 2
+for(pc in seq(1, n_pc, 1)){
 
-n <- nrow(pr$rotation)/3
-n
+	name <- paste("prcomp", formatC(pc, flag = "0", width = 2), sep = "")
 
-for(pc in seq(1, n.pc, 1)){
+	data <- ccipca[["components_"]][pc, ]
+	data <- data*255/max(data)
 
-	# red
-	image_pc_red <- pr_rotation[seq(1, n, 1), pc]
-	image_pc_red <- matrix(image_pc_red, ncol = 192, nrow = 108)
-	write.table(image_pc_red, paste("image_pc", pc, "_red.txt", sep = ""), col.names = FALSE, row.names = FALSE)
+	dest_dir <- "/home/jim/Desktop/video_cluster"
 
-	# green
-	image_pc_gre <- pr_rotation[seq(n + 1, 2*n, 1), pc]
-	image_pc_gre <- matrix(image_pc_gre, ncol = 192, nrow = 108)
-	write.table(image_pc_gre, paste("image_pc", pc, "_gre.txt", sep = ""), col.names = FALSE, row.names = FALSE)
+	W <- 192
+	H <- 108
 
-	# blue
-	image_pc_blu <- pr_rotation[seq(2*n + 1, 3*n, 1), pc]
-	image_pc_blu <- matrix(image_pc_blu, ncol = 192, nrow = 108)
-	write.table(image_pc_blu, paste("image_pc", pc, "_blu.txt", sep = ""), col.names = FALSE, row.names = FALSE)
+	Output_image(name, data, dest_dir, W, H)
 
 }
-
-system(paste("python 4_Output_prcomp.py ", n.pc + 1, sep = ""))
