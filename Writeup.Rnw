@@ -1,0 +1,77 @@
+\documentclass{article}
+\usepackage[latin1]{inputenc}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning}
+\usepackage{caption}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+\tikzset{
+   block_full/.style ={rectangle, draw=black, thick, fill=white,
+      text width=10em, text ragged, minimum height=4em, inner sep=6pt},
+    block_left/.style ={rectangle, draw=black, thick, fill=white,
+      text width=20em, text ragged, minimum height=4em, inner sep=6pt},
+    block_noborder/.style ={rectangle, draw=none, thick, fill=none,
+      text width=50em, text centered, minimum height=1em, inner sep=6pt},
+    block_assign/.style ={rectangle, draw=black, thick, fill=white,
+      text width=12em, text centered, minimum height=3em, inner sep=6pt},
+      line/.style ={draw, very thin, -latex', shorten >=0pt},
+}
+
+\sffamily
+\footnotesize
+\begin{tikzpicture}[node distance=3mm]
+
+  \node [block_noborder, text width=40em,] (Empty) {};
+
+  \node [block_full, below=of Empty.south west, anchor=north west]  (SetTrap1) {
+  Set/Trap 1: \\
+  Video 1 \\
+  Video 2 \\
+  \dots };
+  
+  \node [block_full, text width=10em, below=of Empty] (SetTrap2) {
+  Set/Trap 2: \\
+  Video 1 \\
+  Video 2 \\
+  \dots };
+  
+  \node [block_full, text width=10em, below=of Empty.south east, anchor=north east] (SetTrap3) {
+  Set/Trap 3: \\
+  Video 1 \\
+  Video 2 \\
+  \dots };
+
+  \node [block_noborder, text width=40em, below=of SetTrap2] (ModeMin) {
+    Select video with minimum variance from mode and blah blah, is are we on a second line yet? Nope, well more typing and words and letters then.
+    };
+    
+  \node [block_full, text width=10em, below=of ModeMin.south west, anchor=north west ] (VideoA) {
+  Video A: \\
+  Frame 1 \\
+  Frame 2 \\
+  \dots };
+  
+  \node [block_full, text width=10em, below=of ModeMin] (VideoB) {
+  Video B: \\
+  Frame 1 \\
+  Frame 2 \\
+  \dots };
+  
+  \node [block_full, text width=10em, below=of ModeMin.south east, anchor=north east ] (VideoC) {
+  Video C: \\
+  Frame 1 \\
+  Frame 2 \\
+  \dots };
+
+  \draw[->] (SetTrap1) -- (ModeMin.north-|SetTrap1);
+  \draw[->] (SetTrap2) -- (ModeMin.north-|SetTrap2);
+  \draw[->] (SetTrap3) -- (ModeMin.north-|SetTrap3);
+  \draw[->] (ModeMin.south-|VideoA) -- (VideoA);
+  \draw[->] (ModeMin.south-|VideoB) -- (VideoB);
+  \draw[->] (ModeMin.south-|VideoC) -- (VideoC);
+  \draw[->] (SetTrap2) -- (ModeMin);
+  
+\end{tikzpicture}
+\end{document}
