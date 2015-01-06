@@ -18,11 +18,7 @@ import math
 import re
 import numpy
 
-video_dir = '/home/jim/Desktop/video_cluster/video'
-data_dir = '/home/jim/Desktop/video_cluster/data'
-frames_dir = '/home/jim/Desktop/video_cluster/frames'
-
-def CCIPCA_SetTrap( SetTrap, W, H, skip ):
+def CCIPCA_SetTrap( SetTrap, W, H, skip, video_dir ):
 
   video_files = []
 
@@ -109,12 +105,13 @@ def CCIPCA_SetTrap( SetTrap, W, H, skip ):
 
   output.append(video_files_frames)
 
-  framesData = json.loads(json.dumps(framesData.tolist()))
-  output.append(framesData)
+  # framesData = json.loads(json.dumps(framesData.tolist()))
+  # output.append(framesData)
 
-  components_ = json.loads(json.dumps(components_.tolist()))
-  output.append(components_)
+  # components_ = json.loads(json.dumps(components_.tolist()))
+  # output.append(components_)
 
   output.append(count)
 
   return output
+  
