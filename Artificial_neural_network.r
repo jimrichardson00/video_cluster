@@ -1,5 +1,6 @@
 setwd("/home/jim/Desktop/video_cluster")
 
+require(parallel)
 require(neuralnet)
 require(sqldf)
 require(modeest)
@@ -9,7 +10,6 @@ require(Hmisc)
 require(reshape)
 require(prettyR)
 require(e1071)
-
 
 collapse <- function(Outputs, Outputs_f, result) {
 
@@ -83,9 +83,17 @@ prx$video_files <- video_files_cur
 
 # load video log data
 Sablefish_Survey_2013 <- mdb.get("2013_Sablefish_Survey.mdb")
+names(Sablefish_Survey_2013)
+Sablefish_Survey_2013$lu_substrate
+Sablefish_Survey_2013$lu_impact_evidence
 Video_Analysis_Log <- Sablefish_Survey_2013$data
-names(Video_Analysis_Log)
+Video_Analysis_Log <- Video_Analysis_Log[order(Video_Analysis_Log$TransectName, Video_Analysis_Log$FileName), ]
+Video_Analysis_Log$Comment2 <- ifelse(is.na(str_match(Video_Analysis_Log$Comment, "obscured")) == TRUE, 0, 1)
 Video_Analysis_Log_u <- unique(Video_Analysis_Log[, c("TransectName", "FileName", Outputs)])
+Video_Analysis_Log_u <- Video_Analysis_Log_u[order(Video_Analysis_Log_u$TransectName, Video_Analysis_Log_u$FileName), ]
+
+write.csv(Video_Analysis_Log_u, "Video_Analysis_Log_u.csv")
+write.csv(Video_Analysis_Log, "Video_Analysis_Log.csv")
 
 # set video data as character
 for(name in names(Video_Analysis_Log_u)){
@@ -103,6 +111,10 @@ Video_Analysis_Log_u[Video_Analysis_Log_u == ""] <- 'NA'
 # merged data set
 data <- merge(x = prx, y = Video_Analysis_Log_u, by.x = "video_files", by.y = "video_files")
 
+nrow(data)
+data
+
+
 # unique set, trap combos
 set_camera <- str_match(data$video_files, "(.+)_GOPR.+")[, 2] 
 data$set_camera <- set_camera
@@ -110,7 +122,8 @@ set_camera_u <- unique(set_camera)
 set_camera_u
 
 # set outputs and inputs
-Outputs <- c("ImageQualityID", "OnBottom", "Complexity", "ImpactEvidence", "DominantSubstrate", "SubdominantSubstrate")
+Outputs <- c("ImageQualityID", "OnBottom", "Complexity", "ImpactEvidence", "DominantSubstrate", "Comment2")
+Outputs <- c("DominantSubstrate")
 Inputs <- paste("V", seq(1, 20, 1), sep = "")
 
 # set new output list with 0, 1 true false for each category within each variable
@@ -129,14 +142,16 @@ for(Output in Outputs) {
 formula_f <- as.formula(paste(paste(Outputs_f, collapse = "+"), "~", paste(Inputs, collapse = "+")))
 formula <- as.formula(paste(paste(Outputs, collapse = "+"), "~", paste(Inputs, collapse = "+")))
 
-N <- 100
+N <- 1000
 
 i <- 1
 results <- vector("list", N)
 n_nodes <- ceiling(mean(c(length(Outputs_f), length(Inputs))))
-n_layer <- 3
-Output
-for(i in seq(1, N, 1)){
+n_nodes
+n_layer <- 5
+Outputs
+i <- 1
+for(i in seq(1, N, 1)) {
 
 	print(i)
 
@@ -150,13 +165,9 @@ for(i in seq(1, N, 1)){
 	arnn <- neuralnet(formula_f, hidden = rep(n_nodes, n_layer), threshold = 0.01, stepmax = 10^6, data = data_train)
 	arnn_result <- compute(x = arnn, data_test[, Inputs])
 
-	nbay <- naiveBayes(data_train[, Inputs], data_train[, Outputs[5]]) 
-	table(predict(nbay, data_test[, Inputs]), data_test[, Outputs[5]])
-
 	# random forest
 	rndf_result <- matrix(NA, nrow = nrow(data_test), ncol = length(Outputs))
 	nbay_result <- matrix(NA, nrow = nrow(data_test), ncol = length(Outputs))
-	o <- 5
 	for(o in seq(1, length(Outputs), 1)) {
 		tryCatch({
 			Output <- Outputs[o]
@@ -193,7 +204,7 @@ for(i in seq(1, N, 1)){
 
 }
 
-o <- 5
+o <- 4
 Outputs[o]
 confusion(i = i, Output = Outputs[o], results = results, var2 = "arnn_result")
 results[[1]][["arnn_result"]]['DominantSubstrate']
@@ -207,19 +218,23 @@ for(o in seq(1, length(Outputs), 1)) {
 
 	confusion_arnn <- matrix(0, nrow = nrow(Outputs_f_o), ncol = nrow(Outputs_f_o))
 	confusion_rndf <- matrix(0, nrow = nrow(Outputs_f_o), ncol = nrow(Outputs_f_o))
+	confusion_nbay <- matrix(0, nrow = nrow(Outputs_f_o), ncol = nrow(Outputs_f_o))
 	confusion_mode <- matrix(0, nrow = nrow(Outputs_f_o), ncol = nrow(Outputs_f_o))
 
 	per_correct_arnn <- 0
 	per_correct_rndf <- 0
+	per_correct_nbay <- 0
 	per_correct_mode <- 0
 
 	for(i in 1:N){
 		confusion_arnn <- confusion_arnn + confusion(i = i, Output = Outputs[o], results = results, var2 = "arnn_result")
 		confusion_rndf <- confusion_rndf + confusion(i = i, Output = Outputs[o], results = results, var2 = "rndf_result")
+		confusion_nbay <- confusion_nbay + confusion(i = i, Output = Outputs[o], results = results, var2 = "nbay_result")
 		confusion_mode <- confusion_mode + confusion(i = i, Output = Outputs[o], results = results, var2 = "mode_result")
 
 		per_correct_arnn <- per_correct_arnn + per_correct(confusion(i = i, Output = Outputs[o], results = results, var2 = "arnn_result"))
 		per_correct_rndf <- per_correct_rndf + per_correct(confusion(i = i, Output = Outputs[o], results = results, var2 = "rndf_result"))
+		per_correct_nbay <- per_correct_nbay + per_correct(confusion(i = i, Output = Outputs[o], results = results, var2 = "nbay_result"))
 		per_correct_mode <- per_correct_mode + per_correct(confusion(i = i, Output = Outputs[o], results = results, var2 = "mode_result"))
 	}
 
@@ -231,15 +246,26 @@ for(o in seq(1, length(Outputs), 1)) {
 
 	print(paste("arnn", " ", per_correct_arnn/N, sep = ""))
 	print(paste("rndf", " ", per_correct_rndf/N, sep = ""))
+	print(paste("nbay", " ", per_correct_nbay/N, sep = ""))
 	print(paste("mode", " ", per_correct_mode/N, sep = ""))
 	print("")
+
+	print(paste("arnn"))
+	confusion_arnn
+	print(paste("rndf"))
+	confusion_rndf
+	print(paste("mode"))
+	confusion_mode
+	print("")
+
 }
 
 
+data
+
 o
 Outputs[6]
-confusion(i = i, Output = Outputs[4], results = results, var2 = "arnn_result")
-confusion(i = i, Output = Outputs[6], results = results, var2 = "rndf_result")
+confusion(i = i, OutputsOutput = Outputs[6], results = results, var2 = "rndf_result")
 confusion(i = i, Output = Outputs[4], results = results, var2 = "mode_result")
 length(results)
 
