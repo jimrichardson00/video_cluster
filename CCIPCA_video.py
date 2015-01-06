@@ -21,7 +21,7 @@ video_dir = '/home/jim/Desktop/video_cluster/video'
 data_dir = '/home/jim/Desktop/video_cluster/data'
 frames_dir = '/home/jim/Desktop/video_cluster/frames'
 
-def CCIPCA_video( video_file, n_components, W, H, fast ):
+def CCIPCA_video( video_file, n_components, W, H, skip, fast ):
 
   # sets the full path of each folder
   video_file_path = os.path.abspath(os.path.join(video_dir,video_file))
@@ -41,6 +41,8 @@ def CCIPCA_video( video_file, n_components, W, H, fast ):
 
     success, frame = vidcap.read()
 
+    frame_rate = int(round(vidcap.get(5)))
+
     if fast == 0:
 
       f = 0;
@@ -49,7 +51,7 @@ def CCIPCA_video( video_file, n_components, W, H, fast ):
 
         success, frame = vidcap.read()
         
-        if f % 30 == 0:
+        if f % 30 == 0 and f >= frame_rate*skip:
 
           height, width, depth = frame.shape
           x1 = int(math.floor(Decimal(0.26041666666)*Decimal(width)))
@@ -87,15 +89,13 @@ def CCIPCA_video( video_file, n_components, W, H, fast ):
 
         f += 1
 
-
     frames_rowvecs = []
     for (i, frame) in enumerate(frames):
       frames_rowvecs.append(frame.flatten("C").copy())
-
-    framesData = numpy.vstack(frames_rowvecs) 
     
     output = []
 
+    framesData = numpy.vstack(frames_rowvecs) 
     framesData = numpy.array(framesData)
     framesData = json.loads(json.dumps(framesData.tolist()))
     output.append(framesData)
@@ -106,7 +106,7 @@ def CCIPCA_video( video_file, n_components, W, H, fast ):
       ccipca = CCIPCA(n_components = n_components).fit(framesData)
 
       components_ = ccipca.components_
-
+      
       components_ = numpy.array(components_)
       components_ = json.loads(json.dumps(components_.tolist()))
       output.append(components_)
