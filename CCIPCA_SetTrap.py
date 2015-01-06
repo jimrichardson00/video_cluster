@@ -22,7 +22,7 @@ video_dir = '/home/jim/Desktop/video_cluster/video'
 data_dir = '/home/jim/Desktop/video_cluster/data'
 frames_dir = '/home/jim/Desktop/video_cluster/frames'
 
-def CCIPCA_SetTrap( SetTrap, n_components, W, H ):
+def CCIPCA_SetTrap( SetTrap, W, H, skip ):
 
   video_files = []
 
@@ -37,6 +37,8 @@ def CCIPCA_SetTrap( SetTrap, n_components, W, H ):
   frames = []
   video_files_frames = []
 
+  count = 0
+
   for video_file in video_files:
 
     # sets the full path of each folder
@@ -50,36 +52,40 @@ def CCIPCA_SetTrap( SetTrap, n_components, W, H ):
       # change working directory
       os.chdir(video_dir)
       vidcap = cv2.VideoCapture(video_file)
-      print video_file
+      # print video_file
 
       success, frame = vidcap.read()
+
+      frame_rate = int(round(vidcap.get(5)))
 
       f = 0;
       while success:
 
         success, frame = vidcap.read()
         
-        if f % 30 == 0:
+        if f % 30 == 0 and f >= frame_rate*skip:
 
           height, width, depth = frame.shape
-          x1 = int(math.floor(Decimal(0.26041666666)*Decimal(width)))
-          x2 = int(math.floor(Decimal(0.73958333334)*Decimal(width)))
-          y1 = 0
-          y2 = int(math.floor(Decimal(0.65555555555)*Decimal(height)))
-          frame = frame[y1:y2, x1:x2]
+          # x1 = int(math.floor(Decimal(0.26041666666)*Decimal(width)))
+          # x2 = int(math.floor(Decimal(0.73958333334)*Decimal(width)))
+          # y1 = 0
+          # y2 = int(math.floor(Decimal(0.65555555555)*Decimal(height)))
+          # frame = frame[y1:y2, x1:x2]
 
           frame = cv2.resize(frame, (W, H))
 
           frames.append(frame)
       
-          video_files_frames.append(fileRoot + "_F" + str(f))
-          print fileRoot + "_F" + str(f)
+          video_files_frames.append(fileRoot + "_F" + str(f).zfill(5))
+          # print fileRoot + "_F" + str(f).zfill(5)
+
+          count = count + 1
 
         f += 1
 
-      print " "
+      # print " "
 
-  n_components = int(n_components)
+  n_components = int(count)
 
   ccipca = CCIPCA(n_components = n_components)
 
@@ -92,14 +98,23 @@ def CCIPCA_SetTrap( SetTrap, n_components, W, H ):
 
   framesData = numpy.vstack(frames_rowvecs)
   framesData = numpy.array(framesData)
-  framesData = json.loads(json.dumps(framesData.tolist()))
-  output.append(framesData)
 
   components_ = ccipca.components_
   components_ = numpy.array(components_)
+
+  prx = components_.dot(framesData.T).T
+  prx = numpy.array(prx)
+  prx = json.loads(json.dumps(prx.tolist()))
+  output.append(prx)
+
+  output.append(video_files_frames)
+
+  framesData = json.loads(json.dumps(framesData.tolist()))
+  output.append(framesData)
+
   components_ = json.loads(json.dumps(components_.tolist()))
   output.append(components_)
-  
-  output.append(video_files_frames)
+
+  output.append(count)
 
   return output
