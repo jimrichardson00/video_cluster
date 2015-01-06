@@ -5,3 +5,9 @@
 *.png
 *.mdb
 *.RData
+*.tex
+*.pdf
+*.aux
+*.log
+*.synctex.gz
+*.synctex.gz(busy)
