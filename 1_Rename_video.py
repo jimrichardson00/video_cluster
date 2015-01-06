@@ -50,7 +50,6 @@ def Rename_video( from_idx, from_dir, to_dir ):
     filenames.sort()
     filename = filenames[0]
 
-
     for filename in filenames:
 
       # extract filename path
