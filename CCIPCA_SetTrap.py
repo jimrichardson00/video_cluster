@@ -43,7 +43,9 @@ def CCIPCA_SetTrap( SetTrap, W, H, skip, video_dir ):
     #sets root and extension of each video_file
     fileRoot, fileExtension = os.path.splitext(video_file)
 
-    if fileExtension == '.MP4':
+    if fileExtension == '.mp4':
+
+      frame = numpy.zeros((H, W, 3), numpy.uint8)
 
       # change working directory
       os.chdir(video_dir)
@@ -105,13 +107,13 @@ def CCIPCA_SetTrap( SetTrap, W, H, skip, video_dir ):
 
   output.append(video_files_frames)
 
+  output.append(count)
+
   # framesData = json.loads(json.dumps(framesData.tolist()))
   # output.append(framesData)
 
   # components_ = json.loads(json.dumps(components_.tolist()))
   # output.append(components_)
 
-  output.append(count)
-
   return output
-  
+
