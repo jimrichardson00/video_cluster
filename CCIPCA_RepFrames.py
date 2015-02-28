@@ -17,17 +17,31 @@ from decimal import *
 import math
 import numpy
 
-video_dir = '/home/jim/Desktop/video_cluster/video'
-data_dir = '/home/jim/Desktop/video_cluster/data'
-frames_dir = '/home/jim/Desktop/video_cluster/frames'
-
-def CCIPCA_RepFrames( RepFrames_new, n_components ):
+def CCIPCA_RepFrames( RepFrames_new, n_components, rerun ):
 
   n_components = int(n_components)
+  rerun = int(rerun)
 
   ccipca = CCIPCA(n_components = n_components)
 
+  if rerun == 0:
+
+    n_components = numpy.array(n_components)  
+    iteration = numpy.array(iteration) 
+    amnesic = numpy.array(amnesic)
+    copy = numpy.array(copy  )
+    mean_ = numpy.array(mean_)  
+    components_ = numpy.array(components_)  
+
+    ccipca.n_components = n_components  
+    ccipca.iteration = iteration 
+    ccipca.amnesic = amnesic
+    ccipca.copy = copy  
+    ccipca.mean_ = mean_  
+    ccipca.components_ = components_
+
   ccipca = ccipca.fit(RepFrames_new)
+  prx =  ccipca.transform(RepFrames_new)
 
   ccipca_dict = {}
 
@@ -60,5 +74,9 @@ def CCIPCA_RepFrames( RepFrames_new, n_components ):
   components_ = numpy.array(components_)
   components_ = json.loads(json.dumps(components_.tolist()))
   ccipca_dict["components_"] = components_
+
+  prx = numpy.array(prx)
+  prx = json.loads(json.dumps(prx.tolist()))
+  ccipca_dict["prx"] = prx
 
   return ccipca_dict
