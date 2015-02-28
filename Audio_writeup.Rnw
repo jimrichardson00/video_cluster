@@ -1,0 +1,380 @@
+\documentclass{article}
+
+\usepackage[latin1]{inputenc}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning}
+\usepackage{caption}
+\usepackage{fullpage}
+% \usepackage[top=1cm, bottom=1cm, left=1cm, right=1cm]{geometry}
+\usepackage{rotating}
+\usepackage{float}
+
+\newcommand*{\h}{\hspace{5pt}}% for indentation
+\newcommand*{\hh}{\h\h}% double indentation
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+<<echo=FALSE,results=hide>>=
+
+require(Hmisc)
+Sablefish_Survey_2013 <- mdb.get("2013_Sablefish_Survey.mdb")
+
+W = 192
+H = 108
+skip = 6
+year = "2013"
+# master_dir = "/home/jim/Dropbox/REM/Tasks/video_cluster"
+master_dir = "/Users/jimrichardson/Dropbox/REM/Tasks/video_cluster"
+frame_dir = paste(master_dir, "/frame", year, sep = "")
+video_dir = paste(master_dir, "/video", year, sep = "")
+audio_dir = paste(master_dir, "/audio", year, sep = "")
+
+n_SetTraps = 111
+n_videos = 444
+year = 2013
+n_seconds = 16
+n_traps = 30
+Hgp = 10800
+Wgp = 19200
+frame_rate = 30
+n_clusters = 30
+
+# --------------------------------------------------------------
+
+require(Hmisc)
+Sablefish_Survey_2013 <- mdb.get("2013_Sablefish_Survey.mdb")
+
+year = "2013"
+master_dir = "/home/jim/Dropbox/REM/Tasks/video_cluster"
+# master_dir = "/Users/jimrichardson/Dropbox/REM/Tasks/video_cluster"
+frame_dir = paste(master_dir, "/frame", year, sep = "")
+video_dir = paste(master_dir, "/video", year, sep = "")
+audio_dir = paste(master_dir, "/audio", year, sep = "")
+
+audio_files <- as.character(sort(list.files(audio_dir, pattern = "\\.wav$")))
+audio_file <- audio_files[1]
+
+setwd(audio_dir)
+require(tuneR)
+audio <- readWave(audio_file)
+f <- audio@samp.rate
+setwd(master_dir)
+
+Feature_names <- c("zcr", 
+                  "cent", 
+                  "roughness", 
+                  "rms", 
+                  "Q25", 
+                  "Q75", 
+                  "IQR", 
+                  "rugo", 
+                  "H", 
+                  "variance", 
+                  "energy", 
+                  "melfcc1,..., melfcc12")
+Feature_desc <- c("Zero crossing rate", 
+                  "Centroid frequency", 
+                  "Roughness", 
+                  "Root mean square", 
+                  "Frequency at which 25% of energy is below", 
+                  "Frequency at which 75% of energy is below", 
+                  "Interquartile range", 
+                  "Rugosity", 
+                  "Entropy", 
+                  "Variance", 
+                  "Energy", 
+                  "First 12 Mel-frequency cepstral coefficients")
+
+Features_table <- data.frame(Feature_names = Feature_names, Feature_desc = Feature_desc)
+
+N <- 10
+
+@
+
+\section{Audio data}
+
+The stratified random survey audio data for $\Sexpr{year}$ consists of audio from $\Sexpr{n_videos}$ videos in total, each about $\Sexpr{n_seconds}$ seconds long. Each video is from a particular set and trap. A set is a groundline with a number of traps, typically about $\Sexpr{n_traps}$, and the traps are numbered in increasing order from one end of the groundline to the other. Typically a single camera is put on the middle trap, trap $14$ or so, but sometimes a given set has $3$ or more cameras. There are $\Sexpr{n_SetTraps}$ unique set and trap combinations, each set and trap has one or more videos.
+
+The video was filmed with commercially available GoPros and from this we were able to extract some pretty high quality .wav audio files. A summary of one of the audio files is given below:
+
+<<echo=FALSE>>=
+print(audio_file)
+setwd(audio_dir)
+require(tuneR)
+audio <- readWave(audio_file)
+f <- audio@samp.rate
+setwd(master_dir)
+print(audio)
+@
+
+\section{Feature extraction}
+
+We are ultimately interested in if we can build an algorithm that will automatically classify an audio file according to the sound of motion of the trap. There is already some literature on which features of an audio signal are useful for classification, following this we extracted the following $\Sexpr{nrow(Features_table) - 1 + 12}$ features (including 12 Mel-frequency cepstrum coefficients):
+
+<<echo=FALSE,results=tex>>=
+require(xtable)
+xtable(Features_table)
+@
+
+\section{Create Audio data set}
+
+The features values from each audio file were collected together in a matrix with $\Sexpr{length(audio_files)}$ rows containing the audio files and $\Sexpr{length(Feature_names) - 1 + 12}$ columns containing the feature values for each audio file. The first $6$ audio files are shown below (note: this table is a transpose of our data, with audio files as columns and features as rows) : 
+
+\pagebreak
+
+<<echo=FALSE,results=tex>>=
+setwd(master_dir)
+load(paste('pca_audio', year, '.RData', sep = ''))
+len_Feature_names <- length(Feature_names)
+
+require(xtable)
+audio_files_M <- pca[["audio_files_M"]]
+audio_files_M <- t(audio_files_M)
+audio_files_M <- as.data.frame(audio_files_M)
+row.names(audio_files_M) <- c(Feature_names[1:len_Feature_names-1], paste("melfcc", seq(1, 12, 1), sep = ""))
+names(audio_files_M) <- audio_files
+audio_files_M <- audio_files_M[, 1:5]
+x.small <- xtable(audio_files_M, size="\\tiny",  scalebox='0.75')
+print(x.small, rotate.colnames=TRUE, table.placement="H")
+@
+
+\pagebreak
+
+\section{Train a classification algorithm on Sounds}
+
+We are interested in if we can build an algorithm that will automatically classify an audio file according to its the sounds in it - trap banging, trap scraping, and so on. At present all $\Sexpr{n_videos}$ videos have been watched and the audio has been classified into one of $\Sexpr{nrow(Sablefish_Survey_2013$lu_sounds)}$ sounds. The following table shows these sounds and the frequency at which they occur in the data:
+
+<<echo=FALSE,results=tex>>=
+setwd(master_dir)
+load("data_audio.RData")
+data[is.na(data) == TRUE | data == ""] <- "NA"
+require(plyr)
+Sounds_freq <- ddply(.data = data, .variables = .(Sounds, SoundName, SoundsDescription), .fun = summarise, Freq = length(Sounds))
+require(xtable)
+xtable(Sounds_freq)
+@
+
+The idea then is to combine this classification with the features extracted from each audio file and see if we can train a machine learning algorithm to automatically do the classification. The data was randomly split into two groups: a training set consisting of $\frac{2}{3}$ of the data, and a test set consisting of the remaining $\frac{1}{3}$ of the data. The algorithm is trained on the training set then tested on the test set. This was done $\Sexpr{N}$ times and the algorithm was evaluated on how many audio files it correctly classified in each test set.
+
+We trained a few different algorithms; an artificial neural network, a random forest, a naive bayes classifier and a crude algorithm that simply looks for the sound that occured with the highest frequency in the training set and classifies everything as this. The results were as follows:
+
+<<echo=FALSE,results=tex>>=
+require(xtable)
+setwd(master_dir)
+load("per_correct_audioSounds.RData")
+per_correct_arnns = per_correct_resu[["per_correct_arnns"]]
+per_correct_rndfs = per_correct_resu[["per_correct_rndfs"]]
+per_correct_nbays = per_correct_resu[["per_correct_nbays"]]
+per_correct_modes = per_correct_resu[["per_correct_modes"]]
+ATR <- 
+  data.frame(Names = c("Artifical neural network", 
+                     "Random forest", 
+                     "Naive bayes classifer", 
+                     "Crude mode classifer"), 
+          Per_correct = c(mean(per_correct_arnns), 
+                          mean(per_correct_rndfs), 
+                          mean(per_correct_nbays), 
+                          mean(per_correct_modes)))
+xtable(ATR)
+@
+
+The model that performed the best was the \Sexpr{ATR[which.max(ATR[, 2]), 1]} with an accuracy of $\Sexpr{round(as.numeric(ATR[which.max(ATR[, 2]), 2])*100)}$\%.
+
+\section{Train a classification algorithm on Substrate}
+
+<<echo=FALSE,results=tex>>=
+setwd(master_dir)
+load("data_audio.RData")
+data[is.na(data) == TRUE | data == ""] <- "NA"
+require(plyr)
+Substrate_freq <- ddply(.data = data, .variables = .(DominantSubstrate, SubstrateType, SubstrateDescription), .fun = summarise, Freq = length(DominantSubstrate))
+require(xtable)
+@
+
+The sounds heard on the video can be indicative of the substrate at the location of the trap. For example: a scraping sound is more likely to indicate bedrock than mud. Each video was watched and classified into on of $\Sexpr{nrow(Substrate_freq)}$ substrates. The following table shows these substrates and the frequency at which they occur in the data:
+
+<<echo=FALSE,results=tex>>=
+Substrate_freq <- xtable(Substrate_freq)
+print(Substrate_freq, table.placement="H")
+@
+
+After restricting to only videos with some sound, the substrate frequency was as follows:
+
+<<echo=FALSE,results=tex>>=
+setwd(master_dir)
+load("data_audio.RData")
+data <- data[data$Sounds != "0", ]
+data[is.na(data) == TRUE | data == ""] <- "NA"
+require(plyr)
+Substrate_freq <- ddply(.data = data, .variables = .(DominantSubstrate, SubstrateType, SubstrateDescription), .fun = summarise, Freq = length(DominantSubstrate))
+require(xtable)
+Substrate_freq <- xtable(Substrate_freq)
+print(Substrate_freq, table.placement="H")
+@
+
+We then trained the machine learning algorithms on the videos with some sound. The results were as follows:
+
+<<echo=FALSE,results=tex>>=
+require(xtable)
+setwd(master_dir)
+load("per_correct_audioDominantSubstrate.RData")
+per_correct_arnns = per_correct_resu[["per_correct_arnns"]]
+per_correct_rndfs = per_correct_resu[["per_correct_rndfs"]]
+per_correct_nbays = per_correct_resu[["per_correct_nbays"]]
+per_correct_modes = per_correct_resu[["per_correct_modes"]]
+ATR <- 
+  data.frame(Names = c("Artifical neural network", 
+                     "Random forest", 
+                     "Naive bayes classifer", 
+                     "Crude mode classifer"), 
+          Per_correct = c(mean(per_correct_arnns), 
+                          mean(per_correct_rndfs), 
+                          mean(per_correct_nbays), 
+                          mean(per_correct_modes)))
+xtable(ATR)
+@
+
+The model that performed the best was the \Sexpr{ATR[which.max(ATR[, 2]), 1]} with an accuracy of $\Sexpr{round(as.numeric(ATR[which.max(ATR[, 2]), 2])*100)}$\%.
+
+
+\pagebreak
+
+\tikzset{
+   block_full/.style ={rectangle, draw=black, thick, fill=white,
+      text width=10em, text ragged, minimum height=4em, inner sep=6pt},
+    block_left/.style ={rectangle, draw=black, thick, fill=white,
+      text width=20em, text ragged, minimum height=4em, inner sep=6pt},
+    block_noborder/.style ={rectangle, draw=none, thick, fill=none,
+      text width=50em, text centered, minimum height=1em, inner sep=6pt},
+    block_assign/.style ={rectangle, draw=black, thick, fill=white,
+      text width=12em, text centered, minimum height=3em, inner sep=6pt},
+      line/.style ={draw, very thin, -latex', shorten >=0pt},
+}
+
+\sffamily
+\footnotesize
+
+\begin{center}
+\begin{tikzpicture}[node distance=3mm]
+
+  \node [block_noborder, text width=40em,] (Empty) {};
+
+  \node [block_full, text width=10em, below=of Empty.south west, anchor=north west ] (Audio1) {
+  Audio 1: \\
+  \h \dots };
+  
+  \node [block_full, text width=10em, below=of Empty] (Audio2) {
+  Audio 2: \\
+  \h \dots };
+  
+  \node [block_full, text width=10em, below=of Empty.south east, anchor=north east ] (Audio3) {
+  Audio 3: \\
+  \h \dots };
+
+  \node [block_noborder, text width=40em, below=of Audio2] (ExtractFeatures) {
+    Extract features, (\Sexpr{Feature_names[1]}, \Sexpr{Feature_names[2]}, \Sexpr{Feature_names[3]}, \dots) from each audio file. Create data set.
+    };
+
+  \node [block_noborder, text width=40em, below=of ExtractFeatures] (AudioData) {
+  \begin{center}
+    \begin{tabular}{ c | c c c c}
+      \hline
+                      & \Sexpr{Feature_names[1]}  & \Sexpr{Feature_names[2]}  & \Sexpr{Feature_names[3]}  & \dots \\
+      \hline
+      Audio file 1    & \dots                     & \dots                     & \dots                     & \dots \\
+      Audio file 2    & \dots                     & \dots                     & \dots                     & \dots \\
+      Audio file 3    & \dots                     & \dots                     & \dots                     & \dots \\
+      \hline
+    \end{tabular}
+  \end{center}
+    };
+
+    
+  \node [block_noborder, text width=40em, below=of AudioData] (Merge) {
+    Merge with video log data
+    };
+    
+  \node [block_full, text width=40em, below=of Merge] (MergedData) {
+  Data table
+  \begin{center}
+    \begin{tabular}{ c | c c c c | c}
+      \hline
+                      & \Sexpr{Feature_names[1]}  & \Sexpr{Feature_names[2]}  & \Sexpr{Feature_names[3]}  & \dots & Sounds\\
+      \hline
+      Audio file 1    & \dots                     & \dots                     & \dots                     & \dots & None\\
+      Audio file 2    & \dots                     & \dots                     & \dots                     & \dots & Scraping\\
+      Audio file 3    & \dots                     & \dots                     & \dots                     & \dots & Tapping\\
+      \hline
+    \end{tabular}
+  \end{center}
+    };
+    
+  \node [block_noborder, text width=10em, below=of MergedData.south west, anchor=north west ] (TrainSub) {
+  Take random 2/3 subset of data
+  };
+  
+  \node [block_noborder, text width=10em, below=of MergedData.south, anchor=north ] (Empty2) {
+   .\\
+   .\\
+   };
+  
+  \node [block_noborder, text width=10em, below=of MergedData.south east, anchor=north east ] (TestSub) {
+  Take remaining 1/3 subset of data
+  };
+  
+  \node [block_full, text width=11em, minimum height=5em, below=of TrainSub.south west, anchor=north west ] (TrainData) {
+  Train machine learning algorithm: \\
+  \h \Sexpr{ATR[1, 1]} \\
+  \h \Sexpr{ATR[2, 1]} \\
+  \h \Sexpr{ATR[3, 1]} \\
+  \h \Sexpr{ATR[4, 1]} \\
+  };
+  
+  \node [block_full, text width=10em, minimum height=5em, right=of TrainData ] (Input) {
+  Input \\
+  \hh Input the test data into the trained model. \\
+  \hh \\
+  \hh \\
+  \hh \\
+  };
+  
+  \node [block_full, text width=14em, minimum height=5em, below=of TestSub.south east, anchor=north east ] (TestData) {
+  Data table
+  \begin{center}
+    \begin{tabular}{ c | c c | c }
+      \hline
+                      & \Sexpr{Feature_names[1]}  & \dots & Sounds\\
+      \hline
+      AF1             & \dots                     & \dots & Bedrock\\
+      AF2             & \dots                     & \dots & Mud\\
+      AF3             & \dots                     & \dots & Gravel\\
+      \hline
+    \end{tabular}
+  \end{center}
+  };
+
+  \node [block_full, text width=20em, below=of Input] (Validate) {
+  Validate \\
+  \hh Compare classifications obtained from the trained model run on the test data, with the actual classifications in the test data. Repeat this $\Sexpr{N}$ times, and summarize accuracy of each model.
+  };
+
+  \draw[->] (Audio1) -- (ExtractFeatures.north-|Audio1);
+  \draw[->] (Audio2) -- (ExtractFeatures.north-|Audio2);
+  \draw[->] (Audio3) -- (ExtractFeatures.north-|Audio3);
+  \draw[->] (ExtractFeatures) -- (AudioData);
+  \draw[->] (AudioData) -- (Merge);
+  \draw[->] (Merge) -- (MergedData);
+  \draw[->] (MergedData.south-|TrainSub) -| (TrainSub.north);
+  \draw[->] (MergedData.south-|TestSub) -| (TestSub.north); 
+  \draw[->] (TrainSub.south-|TrainSub) -| (TrainData);
+  \draw[->] (TestSub) -- (TestData.north-|TestSub);
+  \draw[->] (TestData.west|-Input) -- (Input); 
+  \draw[->] (TrainData) -- (Input); 
+  \draw[->] (Input) -- (Validate); 
+
+  ; 
+  
+\end{tikzpicture}
+\end{center}
+\end{document}
