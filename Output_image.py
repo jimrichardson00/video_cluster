@@ -17,6 +17,8 @@ def Output_image( name, red, gre, blu, dest_dir, W, H ):
   image[:, :, 0] = blu
   image[:, :, 1] = gre
   image[:, :, 2] = red
+
+  image = numpy.clip(image, 0, 255)
   
   os.chdir(str(dest_dir))
   cv2.imwrite(str(name) + ".jpg", image)
