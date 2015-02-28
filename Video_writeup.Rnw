@@ -1,0 +1,375 @@
+\documentclass{article}
+\usepackage[latin1]{inputenc}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning}
+\usepackage{caption}
+\usepackage{fullpage}
+% \usepackage[top=1cm, bottom=1cm, left=1cm, right=1cm]{geometry}
+
+\newcommand*{\h}{\hspace{5pt}}% for indentation
+\newcommand*{\hh}{\h\h}% double indentation
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+<<echo=FALSE>>=
+
+require(Hmisc)
+Sablefish_Survey_2013 <- mdb.get("2013_Sablefish_Survey.mdb")
+
+W = 192
+H = 108
+skip = 6
+year = "2013"
+master_dir = "/home/jim/Dropbox/REM/Tasks/video_cluster"
+# master_dir = "/Users/jimrichardson/Dropbox/REM/Tasks/video_cluster"
+frame_dir = paste(master_dir, "/frame", year, sep = "")
+video_dir = paste(master_dir, "/video", year, sep = "")
+audio_dir = paste(master_dir, "/audio", year, sep = "")
+
+n_SetTraps = 111
+n_videos = 444
+year = 2013
+n_seconds = 16
+n_traps = 30
+Hgp = 10800
+Wgp = 19200
+frame_rate = 30
+n_clusters = 30
+@
+
+% video data
+
+\section{Video data}
+
+The stratified random survey video data for $\Sexpr{year}$ consists of $\Sexpr{n_videos}$ videos in total, each about $\Sexpr{n_seconds}$ long. Each video is from a particular set and trap. A set is a groundline with a number of traps, typically about $\Sexpr{n_traps}$, and the traps are numbered in increasing order from one end of the groundline to the other. Typically a single camera is put on the middle trap, trap $14$ or so, but sometimes a given set has $3$ or more cameras. There are $\Sexpr{n_SetTraps}$ unique set and trap combinations, each set and trap has one or more videos.
+
+The video was filmed with commercially available GoPros and the result was some pretty high quality MP4 files. The video has a frame rate of $\Sexpr{frame_rate}$ frames per second and a resolution of $H = \Sexpr{Hgp}$ by $W = \Sexpr{Wgp}$ pixels. Each pixel has three numeric values indicating the relative levels of red, green and blue in the pixel. These values range from $0-255$, $0$ is the highest intensity, $255$ is the lowest.
+
+The data for one frame then would be a vector with $\Sexpr{Hgp} \times \Sexpr{Wgp} \times 3 = \Sexpr{Wgp*Hgp*3}$ dimensions. In a $\Sexpr{n_seconds}$ second video with a frame rate of $\Sexpr{frame_rate}$ frames per second there are $\Sexpr{n_seconds} \times \Sexpr{frame_rate} = \Sexpr{frame_rate*n_seconds}$ such frames. This is computationally prohibitive, so instead we only took one frame per second, and rezized each frame to $H = \Sexpr{H}$ by $W = \Sexpr{W}$. A given frame then, is a vector with $\Sexpr{H} \times \Sexpr{W} \times 3 = 62208$ dimensions.
+
+Frames of a given video are likely to be quite similar, and we only need one frame to identify the substrate. It makes sense to extract a representative frame from the video which best represents the content of the video. This is discussed in the next section.
+
+% extract representative frame from each video
+
+\section{Representative frame extraction}
+
+A typical video in this data set is $\Sexpr{n_seconds}$, giving us $\Sexpr{n_seconds}$ frames to work with. To identify the substrate we only need one, so used a process known as representative frame extraction to identify the frame that best represents the content of the video. For our purposes the representative frame is the frame giving the clearest picture, with the least mud and sand particles obscuring the image. To extract the representative frame we first apply a principal component analysis on the video data to reduce the dimension.
+
+To express the data from a $\Sexpr{n_seconds}$ second video numerically, we would need a matrix with $\Sexpr{n_seconds}$ rows and $\Sexpr{H*W*3}$ columns. This is still computationally prohibitive, so we apply a principal component analysis to reduce the dimension from $\Sexpr{H*W*3}$ to something more managable. Indeed, since there are only $\Sexpr{n_seconds}$ frames the maximum number of linearly independent vectors in our space is $\Sexpr{n_seconds}$. More concretely; a given $\Sexpr{n_seconds}$ second video consists of $\Sexpr{n_seconds}$ points sitting in $\Sexpr{H*W*3}$ dimensional space and these points are contained within a $\Sexpr{n_seconds}$ dimensional subspace.
+
+In fact, to apply our representative frame extraction, we shall collapse the dimension down to $2$. To do this we use a mathematical technique known as principal component analysis. Principal component analysis linearly transforms the data onto a new set of basis vectors $PC1, PC2, \dots, PC16$, known as principal components. Each $PCi$ is a linear combination of our existing $\Sexpr{H*W*3}$ vectors, and each frame can be written as a linear combination of the principal components $PC1, PC2, \dots, PC16$. So what have we gained? Well the principal components are ordered so that $PC1$ is the axis of greatest variation in the data, $PC2$ is the axis of second greatest variation and so on.
+
+So if our data is actually mostly $2$ dimensional, but sitting inside $\Sexpr{H*W*3}$ dimensional space, we won't lose too much information by projecting it onto the space spanned by $PC1, PC2$. This gives us $\Sexpr{n_seconds}$ points in $2$ dimensions - much easier to work with. Frames with moving sand and mud in them are likely to be scattered in different locations in this $2$ dimensional space, since it is unlikey that two frames with moving particles in them are likely to be similar. In contrast, frames with a clear picture and no moving particles are very similar, and will be concentrated in one location. 
+
+Thus to extract the representative frame we first estimate a $2$ dimensional density density distribution for the these points, then select the mode from this distribution, then select the frame that is closest to the mode in the $PC1, PC2$ space. R has packages that allow for density approximation in up to $6$ dimensions, so a similar representative frame extraction process could be applied to the points projected onto $PC1, PC2, \dots PC6$.
+
+% create video data set
+
+\section{Create video data set}
+
+The data from each representative frame was collected together in a matrix. As previously mentioned each frame consists of $H = \Sexpr{H}$ by $W = \Sexpr{W}$ pixels, each with $3$ values indicating the red, green and blue intensity values for that pixel - a total of $\Sexpr{H} \times \Sexpr{W} \times 3 = \Sexpr{H*W*3}$ data points. With $\Sexpr{n_videos}$ videos, this results in a matrix of $\Sexpr{n_videos}$ rows and $\Sexpr{H*W*3}$ columns. The next step is to apply a principal component analysis to reduce the dimension.
+
+% apply pca
+
+\section{Apply Principal component analysis on video data set}
+
+We have already discussed principal component analysis when describing how the representative frame extraction works. Again, we use it here to reduce the dimension of the space from $\Sexpr{H*W*3}$ to something more manageable. Data consisting of $\Sexpr{n_videos}$ points sits inside $\Sexpr{n_videos}$ dimensional subspace. Principal component analysis gives us $\Sexpr{n_videos}$ principal components representing this subspace, and we may decide how many we want to use. R can quite easily do computations with $\Sexpr{n_videos} \times \Sexpr{n_videos}$ matrices, so we might as well use them all. This may change in the future, if the number of videos increases substantially.
+
+% apply clustering to pca data set
+
+\section{Apply clustering to transformed data set}
+
+If we have two frames represented as points in $\Sexpr{H*W*3}$ dimensional pixel space and these points are very close together in the euclidean sense - this means that the red, green, blue values for each pixel are pretty similar for a good proportion of the pixels. Put another way, it means the images are quite similar. The linear transformation given by the principal component analysis is actually a rotation, so distances are preserved. Thus if two frames close in the space $PC1, \dots, PC\Sexpr{n_videos}$, this also means the images are quite similar. 
+
+As an initial, exploratory step, we apply a clustering algorithm to our $\Sexpr{n_videos}$ points to sort them into $\Sexpr{n_clusters}$ groups. The clustering is done on the basis of the distance between each point, so the each group consists of points that are quite close together. In our space, this is equivalent to saying that each group consists of images that look quite similar. Indeed, upon examining the groups we could clearly identify a ``mostly mud'' group, a ``pretty clear'' group, a ``has visible groundline'' group and so on.
+
+% apply classification algorithm to pca data set
+
+\section{Train a classification algorithm on transformed data set}
+
+<<echo=FALSE,results=tex>>=
+setwd(master_dir)
+load("per_correct_videoImageClarity.RData")
+N <- length(per_correct_resu[[1]])
+@
+
+We are interested in if we can build an algorithm that will automatically classify a video according to the image quality - so that we may concentrate on the videos where we can actually see the substrate. Groups 15 and 16 in the clustering showed a mostly clear picture so we used this to classify videos into 2 groups - clear and cloudy. The following table shows these groups and the frequency at which they occur in the data:
+
+<<echo=FALSE,results=tex>>=
+setwd(master_dir)
+load("data_video.RData")
+data[is.na(data) == TRUE | data == ""] <- "NA"
+require(plyr)
+ImageClarity_freq <- ddply(.data = data, .variables = .(ImageClarity), .fun = summarise, Freq = length(ImageClarity))
+require(xtable)
+ImageClarity_freq <- xtable(ImageClarity_freq)
+print(ImageClarity_freq, table.placement="!h")
+@
+
+The idea then is to combine this classification with the principal components from each representative frame and see if we can train a machine learning algorithm to automatically do the classification. The data was randomly split into two groups: a training set consisting of $\frac{2}{3}$ of the data, and a test set consisting of the remaining $\frac{1}{3}$ of the data. The algorithm is trained on the training set then tested on the test set. This was done $\Sexpr{N}$ times and the algorithm was evaluated on how many audio files it correctly classified in each test set.
+
+We trained a few different algorithms; an artificial neural network, a random forest, a naive bayes classifier and a crude algorithm that simply looks for the sound that occured with the highest frequency in the training set and classifies everything as this. The results were as follows:
+
+<<echo=FALSE,results=tex>>=
+require(xtable)
+setwd(master_dir)
+load("per_correct_videoImageClarity.RData")
+per_correct_arnns = per_correct_resu[["per_correct_arnns"]]
+per_correct_rndfs = per_correct_resu[["per_correct_rndfs"]]
+per_correct_nbays = per_correct_resu[["per_correct_nbays"]]
+per_correct_modes = per_correct_resu[["per_correct_modes"]]
+ATR <- 
+  data.frame(Names = c("Artifical neural network", 
+                     "Random forest", 
+                     "Naive bayes classifer", 
+                     "Crude mode classifer"), 
+          Per_correct = c(mean(per_correct_arnns), 
+                          mean(per_correct_rndfs), 
+                          mean(per_correct_nbays), 
+                          mean(per_correct_modes)))
+ATR <- xtable(ATR)
+print(ATR, table.placement="!h")
+@
+
+The model that performed the best was the \Sexpr{ATR[which.max(ATR[, 2]), 1]} with an accuracy of $\Sexpr{round(as.numeric(ATR[which.max(ATR[, 2]), 2])*100)}$\%. The learning algorithms do pretty well on with this classification, although the classification is based on the clustering, so it would be surprise if they didn't do well. A next step might be to refine this classification a little bit, by expanding the list of clear videos.
+
+We then restricted to the $\Sexpr{ImageClarity_freq[ImageClarity_freq$ImageClarity == "Clear", "Freq"]}$ frames classified as ``Clear''. The substrate frequency within this class was as follows:
+
+<<echo=FALSE,results=tex>>=
+require(xtable)
+setwd(master_dir)
+load("data_video.RData")
+data[is.na(data) == TRUE | data == ""] <- "NA"
+#data <- data[data$ImageClarity == "Clear", ]
+require(plyr)
+ImageClarity_freq <- ddply(.data = data, .variables = .(DominantSubstrate, SubstrateType, SubstrateDescription), .fun = summarise, Freq = length(ImageClarity))
+ImageClarity_freq <- xtable(ImageClarity_freq)
+print(ImageClarity_freq, table.placement="!h")
+@
+
+Again, we trained our machine learning algorithms on this data set. The results are as follows:
+
+<<echo=FALSE,results=tex>>=
+require(xtable)
+setwd(master_dir)
+load("per_correct_videoDominantSubstrate.RData")
+per_correct_arnns = per_correct_resu[["per_correct_arnns"]]
+per_correct_rndfs = per_correct_resu[["per_correct_rndfs"]]
+per_correct_nbays = per_correct_resu[["per_correct_nbays"]]
+per_correct_modes = per_correct_resu[["per_correct_modes"]]
+ATR <- 
+  data.frame(Names = c("Artifical neural network", 
+                     "Random forest", 
+                     "Naive bayes classifer", 
+                     "Crude mode classifer"), 
+          Per_correct = c(mean(per_correct_arnns), 
+                          mean(per_correct_rndfs), 
+                          mean(per_correct_nbays), 
+                          mean(per_correct_modes)))
+ATR <- xtable(ATR)
+print(ATR, table.placement="!h")
+@
+
+The model that performed the best was the \Sexpr{ATR[which.max(ATR[, 2]), 1]} with an accuracy of $\Sexpr{round(as.numeric(ATR[which.max(ATR[, 2]), 2])*100)}$\%. So the algorithms have quite a lot of trouble recognizing substrates in this data set.
+
+% test accuracy of classification algorithm
+
+\pagebreak
+
+\tikzset{
+   block_full/.style ={rectangle, draw=black, thick, fill=white,
+      text width=10em, text ragged, minimum height=4em, inner sep=6pt},
+    block_left/.style ={rectangle, draw=black, thick, fill=white,
+      text width=20em, text ragged, minimum height=4em, inner sep=6pt},
+    block_noborder/.style ={rectangle, draw=none, thick, fill=none,
+      text width=50em, text centered, minimum height=1em, inner sep=6pt},
+    block_assign/.style ={rectangle, draw=black, thick, fill=white,
+      text width=12em, text centered, minimum height=3em, inner sep=6pt},
+      line/.style ={draw, very thin, -latex', shorten >=0pt},
+}
+
+\sffamily
+\footnotesize
+
+\begin{center}
+\begin{tikzpicture}[node distance=3mm]
+
+  \node [block_noborder, text width=40em,] (Empty) {};
+
+  \node [block_full, text width=10em, below=of Empty.south west, anchor=north west ] (VideoA) {
+  Video A: \\
+  \h Frame 1 \\
+  \h Frame 2 \\
+  \h \dots };
+  
+  \node [block_full, text width=10em, below=of Empty] (VideoB) {
+  Video B: \\
+  \h Frame 1 \\
+  \h Frame 2 \\
+  \h \dots };
+  
+  \node [block_full, text width=10em, below=of Empty.south east, anchor=north east ] (VideoC) {
+  Video C: \\
+  \h Frame 1 \\
+  \h Frame 2 \\
+  \h \dots };
+
+  \node [block_noborder, text width=40em, below=of VideoB] (BestFrame) {
+    Extract representative frame from each video.
+    };
+
+  \node [block_full, text width=10em, below=of BestFrame.south west, anchor=north west ] (VideoFrameA) {
+  Video Frame A
+  };
+  
+  \node [block_full, text width=10em, below=of BestFrame] (VideoFrameB) {
+  Video Frame B
+  };
+  
+  \node [block_full, text width=10em, below=of BestFrame.south east, anchor=north east ] (VideoFrameC) {
+  Video Frame C
+  };
+
+  \node [block_noborder, text width=40em, below=of VideoFrameB] (aggframesData) {
+    Write frames to a table, with frame as rows and r, g, b for each pixel as columns.
+    };
+
+  \node [block_noborder, text width=40em, below=of aggframesData] (framesData) {
+  \begin{center}
+    \begin{tabular}{ c | c c c c}
+      \hline
+                      & Pixel 1 Blue  & Pixel 1 Green & Pixel 1 Red & \dots \\
+      \hline
+      Video Frame A   & \dots         & \dots         & \dots       & \dots \\
+      Video Frame B   & \dots         & \dots         & \dots       & \dots \\
+      Video Frame C   & \dots         & \dots         & \dots       & \dots \\
+      \hline
+    \end{tabular}
+  \end{center}
+    };
+
+  \node [block_noborder, text width=40em, below=of framesData] (PCA) {
+    Do a principal componenent analysis to reduce he dimension
+    };
+
+  \node [block_noborder, text width=40em, below=of PCA] (prx) {
+  \begin{center}
+    \begin{tabular}{ c | c c c c}
+      \hline
+                      & PrComp 1  & PrComp 2  & PrComp 3  & \dots \\
+      \hline
+      Video Frame A   & \dots     & \dots     & \dots     & \dots \\
+      Video Frame B   & \dots     & \dots     & \dots     & \dots \\
+      Video Frame C   & \dots     & \dots     & \dots     & \dots \\
+      \hline
+    \end{tabular}
+  \end{center}
+    };
+    
+  \node [block_noborder, text width=40em, below=of prx] (Merge) {
+    Merge with video log data
+    };
+    
+  \node [block_full, text width=40em, below=of Merge] (MergedData) {
+  Data table
+  \begin{center}
+    \begin{tabular}{ c | c c c c | c }
+      \hline
+                      & PrComp 1   & PrComp 2 & PrComp 3 & \dots & DominantSubstrate\\
+      \hline
+      Video Frame A   & \dots                   & \dots                 & \dots                 & \dots & Bedrock\\
+      Video Frame B   & \dots                   & \dots                 & \dots                 & \dots & Mud\\
+      Video Frame C   & \dots                   & \dots                 & \dots                 & \dots & Gravel\\
+      \hline
+    \end{tabular}
+  \end{center}
+    };
+    
+  \node [block_noborder, text width=10em, below=of MergedData.south west, anchor=north west ] (TrainSub) {
+  Take random 2/3 subset of data
+  };
+  
+  \node [block_noborder, text width=10em, below=of MergedData.south, anchor=north ] (Empty2) {
+   .\\
+   .\\
+   };
+  
+  \node [block_noborder, text width=10em, below=of MergedData.south east, anchor=north east ] (TestSub) {
+  Take remaining 1/3 subset of data
+  };
+  
+  \node [block_full, text width=10em, minimum height=5em, below=of TrainSub.south west, anchor=north west ] (TrainData) {
+  Train machine learning algorithm: \\
+  asfasfasf \\
+  afasf \\
+  asad \\
+  as d \\
+  asd \\
+  asd \\
+  };
+  
+  \node [block_full, text width=10em, minimum height=5em, right=of TrainData ] (Input) {
+  Input \\
+  asfasfasf \\
+  afasf \\
+  asad \\
+  as d \\
+  asd \\
+  asd \\
+  asd \\
+  };
+  
+  \node [block_full, text width=15em, minimum height=5em, below=of TestSub.south east, anchor=north east ] (TestData) {
+  Data table
+  \begin{center}
+    \begin{tabular}{ c | c c | c }
+      \hline
+                      & PC1   & \dots & DS\\
+      \hline
+      VFA   & \dots & \dots & Bedrock\\
+      VFB   & \dots & \dots & Mud\\
+      VFC   & \dots & \dots & Gravel\\
+      \hline
+    \end{tabular}
+  \end{center}
+  };
+
+  \node [block_full, text width=20em, below=of Input] (Validate) {
+  Validate \\
+  asfasfasf \\
+  afasf \\
+  asad \\
+  as d \\
+  asd \\
+  };
+
+  \draw[->] (VideoA) -- (BestFrame.north-|VideoA);
+  \draw[->] (VideoB) -- (BestFrame.north-|VideoB);
+  \draw[->] (VideoC) -- (BestFrame.north-|VideoC);
+  \draw[->] (BestFrame.south-|VideoFrameA) -- (VideoFrameA);
+  \draw[->] (BestFrame.south-|VideoFrameB) -- (VideoFrameB);
+  \draw[->] (BestFrame.south-|VideoFrameC) -- (VideoFrameC);
+  \draw[->] (VideoFrameA) -- (aggframesData.north-|VideoFrameA);
+  \draw[->] (VideoFrameB) -- (aggframesData.north-|VideoFrameB);
+  \draw[->] (VideoFrameC) -- (aggframesData.north-|VideoFrameC);
+  \draw[->] (aggframesData.south-|VideoFrameA) -| (framesData.north);
+  \draw[->] (aggframesData.south-|VideoFrameB) -| (framesData.north);
+  \draw[->] (aggframesData.south-|VideoFrameC) -| (framesData.north);
+  \draw[->] (framesData) -- (PCA);
+  \draw[->] (PCA) -- (prx);
+  \draw[->] (prx) -- (Merge);
+  \draw[->] (Merge) -- (MergedData);
+  \draw[->] (MergedData.south-|TrainSub) -| (TrainSub.north);
+  \draw[->] (MergedData.south-|TestSub) -| (TestSub.north); 
+  \draw[->] (TrainSub.south-|TrainSub) -| (TrainData);
+  \draw[->] (TestSub) -- (TestData.north-|TestSub);
+  \draw[->] (TestData.west|-Input) -- (Input); 
+  \draw[->] (TrainData) -- (Input); 
+  \draw[->] (Input) -- (Validate); 
+
+  ; 
+  
+\end{tikzpicture}
+\end{center}
+\end{document}
