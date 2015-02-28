@@ -37,7 +37,7 @@ def Add_weighted( video_dir, master_dir, W, H ):
     #sets root and extension of each video_file
     fileRoot, fileExtension = os.path.splitext(video_file_path)
 
-    if fileExtension == '.MP4':
+    if fileExtension == '.mp4':
 
       # change working directory
       os.chdir(video_dir)
