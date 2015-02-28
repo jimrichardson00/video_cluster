@@ -28,6 +28,8 @@ def Rename_video( from_idx, from_dir, to_dir ):
 
   for folder in folders:
 
+    print folder
+
     # folder path
     folder_path = os.path.abspath(os.path.join(from_dir,folder))
     #sets root and extension of each folder
@@ -37,33 +39,48 @@ def Rename_video( from_idx, from_dir, to_dir ):
     # match_ST = re.search(r'Set(\d+)Trap(\d+)', folder)
     match_ST = re.search(r'[a-zA-Z]+(\d+)[a-zA-Z]+(\d+)', folder)
 
+    print match_ST
+
     Set = match_ST.group(1)
     Trap = match_ST.group(2)
 
-    Set = str(Set).zfill(3)
-    Trap = str(Trap).zfill(3)
+    Set = str(Set).zfill(4)
+    Trap = str(Trap).zfill(4)
 
     # ----------------------------------------------------------------------
     # first video in each set/trap
 
     filenames = os.listdir(folder_path)
     filenames.sort()
-    filename = filenames[0]
 
     for filename in filenames:
 
       # extract filename path
       filename_path = os.path.abspath(os.path.join(folder_path, filename))
+
       # extract filename extension
       fileRoot, fileExtension = os.path.splitext(filename_path)
+
       print filename
+
+      print fileRoot
+
+      print fileExtension
+
       if fileExtension == '.MP4':
+
+        match_BF = re.search(r'(.+)\.MP4', filename)
+
+        print match_BF
+
+        base_filename = match_BF.group(1)
 
         # copies the file
         shutil.move(filename_path, to_dir)
 
         # new filename
-        NewFilename = from_idx + '_' + 'S' + str(Set) + 'T' + str(Trap) + '_' + str(filename)
+        NewFilename = from_idx + '_' + 'S' + str(Set) + 'T' + str(Trap) + '_' + str(base_filename) + ".mp4"
+        
         print NewFilename
 
         # new filename path
@@ -74,5 +91,7 @@ def Rename_video( from_idx, from_dir, to_dir ):
 
         # renames the file
         os.rename(filename_path, NewFilename_path)
+
         
-      
+
+
