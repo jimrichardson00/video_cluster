@@ -11,7 +11,7 @@ import math
 import numpy
 import re
 
-video_dir = "/home/jim/Desktop/video_cluster/video"
+video_dir = "/home/jim/Desktop/video_cluster/video2013"
 
 video_files = os.listdir(video_dir)
 
