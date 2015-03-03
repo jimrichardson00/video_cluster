@@ -316,4 +316,17 @@ Standardize_components <- function(components_) {
 	return(components_)
 }
 
+Extract_frame <- function(video_file, frame_dir, W, H, skip) {
+
+	print(paste("Starting frame: ", video_file, sep = ""))
+
+	require(rPython)
+
+	setwd(master_dir)
+	python.load("Extract_frame.py")
+	frame = python.call("Extract_frame", paste(video_file, ".jpg", sep = ""), frame_dir, W, H, skip)
+	print(paste("Finished frame: ", video_file, sep = ""))
+
+	return(frame)
+}
 
