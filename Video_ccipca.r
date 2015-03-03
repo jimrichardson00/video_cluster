@@ -31,18 +31,22 @@ if(file.exists(paste("ccipca_video", year, ".RData", sep = "")) == TRUE & rerun 
 }
 
 # list of videos and SetTraps in video folder
-video_files <- sort(list.files(video_dir))
+require(stringr)
+video_files <- str_match(sort(list.files(frame_dir)), "(.+)\\.jpg")[, 2]
 video_files
 
 # defines new videos to be added
 video_files_new <- video_files[!(video_files %in% video_files_cur)]
 video_files_new
 
+video_file = video_files_new[50]
+video_file
+
 print("Starting now   ")
 
 # cacluates the new rep frames matrix
 if(length(video_files_new) > 0) {
-	setwd(video_dir)
+	setwd(frame_dir)
 	require(parallel)
 	if(mac == TRUE) {
 		# video_files_frames_new_Ll <- lapply(video_files_new, 
@@ -51,9 +55,13 @@ if(length(video_files_new) > 0) {
 		# RepFrames_new_Ll <- lapply(unlist(video_files_frames_new_Ll), 
 		# 	FUN = function(video_file_frame) Extract_data(video_file_frame, 
 		# 		W = W, H = H, video_dir = video_dir))
+		# RepFrames_new_Ll <- lapply(video_files, 
+		# 	FUN = function(video_file) Extract_MeanFrame(video_file = video_file, 
+		# 		W = W, H = H, video_dir = video_dir, skip = skip))		
 		RepFrames_new_Ll <- lapply(video_files, 
-			FUN = function(video_file) Extract_MeanFrame(video_file = video_file, 
-				W = W, H = H, video_dir = video_dir, skip = skip))		
+			FUN = function(video_file) Extract_frame(video_file = video_file, 
+				W = W, H = H, frame_dir = frame_dir, skip = skip)
+			)
 		Len <- unlist(lapply(seq(1, length(RepFrames_new_Ll), 1), FUN = function(i) length(RepFrames_new_Ll[[i]])))
 	} else {
 		# video_files_frames_new_Ll <- mclapply(video_files_new, 
@@ -73,9 +81,16 @@ if(length(video_files_new) > 0) {
 		# 	, mc.preschedule = TRUE
 		# 	)
 		# RepFrames_new_Ll <- lapply(video_files, 
+		# RepFrames_new_Ll <- mclapply(video_files, 
+		# 	FUN = function(video_file) Extract_MeanFrame(video_file, 
+		# 		W = W, H = H, video_dir = video_dir, skip = skip)
+		# 	, mc.cores = n_cores
+		# 	, mc.silent = FALSE
+		# 	, mc.preschedule = TRUE
+		# 	)
 		RepFrames_new_Ll <- mclapply(video_files, 
-			FUN = function(video_file) Extract_MeanFrame(video_file, 
-				W = W, H = H, video_dir = video_dir, skip = skip)
+			FUN = function(video_file) Extract_frame(video_file = video_file, 
+				W = W, H = H, frame_dir = frame_dir, skip = skip)
 			, mc.cores = n_cores
 			, mc.silent = FALSE
 			, mc.preschedule = TRUE
