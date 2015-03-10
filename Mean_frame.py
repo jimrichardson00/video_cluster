@@ -6,9 +6,9 @@ import math
 import os
 import cPickle as pickle
 
-def Mean_frame( video_file, video_dir, skip, data ):
+def Mean_frame( video_file, video_dir, skip, data, Hgp, Wgp ):
 
-  # frame_o = np.zeros((W, H, 3))
+  # frame_o = np.zeros((Wgp, Hgp, 3))
 
   os.chdir(video_dir)
   vidcap = cv2.VideoCapture(video_file)
