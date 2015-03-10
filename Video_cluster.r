@@ -32,24 +32,24 @@ setwd(master_dir)
 colours <- rainbow(k)
 colours
 
-pdf("Video__hclust_dendrogram.pdf")
-fit_col <- colour_clusters(fit, k = k, groupLabels = TRUE, col = colours)
-plot(fit_col)
-require(dendextend)
-rect.dendrogram(fit_col, k = k, border = "red")
-dev.off()
-
 memb <- cutree(fit, k = k)
 cent <- NULL
 for(cl in 1:k){
   cent <- rbind(cent, colMeans(prx[memb == cl, , drop = FALSE]))
 }
 
-pdf("Video_cluster_hclust.pdf")
-plot(prx[, 1:2], col = colours)
-points(cent[, 1:2], pch = 16)
-text(cent[, 1:2], labels = unique(clusters), pos = 3)
-dev.off()
+# pdf("Video__hclust_dendrogram.pdf")
+# fit_col <- colour_clusters(fit, k = k, groupLabels = TRUE, col = colours)
+# plot(fit_col)
+# require(dendextend)
+# rect.dendrogram(fit_col, k = k, border = "red")
+# dev.off()
+
+# pdf("Video_cluster_hclust.pdf")
+# plot(prx[, 1:2], col = colours)
+# points(cent[, 1:2], pch = 16)
+# text(cent[, 1:2], labels = unique(clusters), pos = 3)
+# dev.off()
 
 fit_col <- colour_clusters(fit, k = k, groupLabels = TRUE, col = colours)
 plot(fit_col)
