@@ -30,7 +30,7 @@ def Detect_features( img, to_dir, jpg_name ) :
   hue[hue > float(cutoff*255/180)] = c2[hue > float(cutoff*255/180)] - hue[hue > float(cutoff*255/180)]
 
   reduce_col = Reduce_colors( hue, 20 )
-  edges = cv2.Canny(reduce_col, 2*30, 30*4)
+  edges = cv2.Canny(reduce_col, 2*30, 4*30)
   # kernel = np.ones((2, 2), np.uint8)
   kernel = np.ones((4, 4), np.uint8)
   dilation = cv2.dilate(edges, kernel, iterations = 1)
@@ -75,7 +75,7 @@ def Detect_features( img, to_dir, jpg_name ) :
   if if_best_cnt == True:
     cv2.drawContours(img, [best_cnt], -1, (254, 0, 0), -1)
   
-  max_area = str(int(round(max_area))).zfill(10)
+  max_area = str(int(float(max_area))).zfill(10)
 
   count = 4
 
@@ -89,6 +89,11 @@ def Detect_features( img, to_dir, jpg_name ) :
   os.chdir(to_dir)
   cv2.imwrite(max_area + jpg_name + '01' + '.jpg', reduce_col)
   cv2.imwrite(max_area + jpg_name + '02' + '.jpg', img_o)
+  cv2.imwrite(max_area + jpg_name + '03' + '.jpg', edges)
+  cv2.imwrite(max_area + jpg_name + '04' + '.jpg', mask)
+  cv2.imwrite(max_area + jpg_name + '05' + '.jpg', dilation)
+  cv2.imwrite(max_area + jpg_name + '06' + '.jpg', hue_edge)
+  cv2.imwrite(max_area + jpg_name + '07' + '.jpg', mask_inv)
 
   return areas
 
