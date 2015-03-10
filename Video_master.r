@@ -4,11 +4,15 @@ n_cores = detectCores(all.tests = FALSE, logical = FALSE) - 1
 require(doParallel)
 registerDoParallel(cores = n_cores)
 
-W = 192
-H = 108
+H = 230
+W = 177
+Hgp = 1080
+Wgp = 1920
 skip = 6
-year = "2013"
-# year = "2014"
+year = ""
+# year = "STRS2013"
+# year = "STRS2014"
+# year = "SKBO2014"
 # mac = TRUE
 mac = FALSE
 if(mac == TRUE) {
@@ -31,25 +35,25 @@ source("Video_functions.r")
 # --------------------------------------------
 # copies videos into one folder with labels
 
-from_dirs = c("/home/jim/Desktop/october 2013 video")
-from_idxs = c("STRS2013")
+from_dirs = c("/home/jim/Desktop/2014 SKB video")
+from_idxs = c("SKBO2014")
 to_dir =  video_dir
 # source("Video_prepfile.r")
 
 # --------------------------------------------
 # applies ccipca on video data and saves it to rdata
 
-rerun = 1
+rerun = 0
 fast = 0
 setwd(master_dir)
-# source("Video_ccipca.r")
+source("Video_ccipca.r")
 
 # ---------------------------------------------------
 # copies frames into cluster folders, and into rep_frames folder
 
 k = 40
 setwd(master_dir)
-# source("Video_cluster.r")
+source("Video_cluster.r")
 
 # ----------------------------------------
 # train video data on existing setwd
@@ -58,7 +62,7 @@ setwd(master_dir)
 N = 10
 
 setwd(master_dir)
-load(paste("ccipca_video", year, ".RData", sep = ""))
+load(paste("ccipca_videoSTRS2013.RData", sep = ""))
 video_files_cur <- ccipca[["video_files_cur"]]
 
 Clear <- character(0)
@@ -83,14 +87,15 @@ source("Video_training.r")
 # apply clear classifier to 2014 data
 
 setwd(master_dir)
-load(paste("ccipca_video2014.RData", sep = ""))
+load(paste("ccipca_videoSKBO2014.RData", sep = ""))
+# load(paste("ccipca_videoSTRS2014.RData", sep = ""))
 RepFrames_cur <- ccipca[["RepFrames_cur"]]
 video_files_cur <- ccipca[["video_files_cur"]]
 video_files_cur
 mean_ <- ccipca[["mean_"]]
 
 setwd(master_dir)
-load(paste("ccipca_video2013.RData", sep = ""))
+load(paste("ccipca_videoSTRS2013.RData", sep = ""))
 components_ <- ccipca[["components_"]]
 
 prx2014 <- (as.matrix(RepFrames_cur) - matrix(rep(mean_, length(video_files_cur)), ncol = length(mean_), byrow = TRUE)) %*% t(components_)
@@ -106,14 +111,15 @@ for(name in names(prx2014)){
 # 		prx2014[, j] <- prx2014[, j]/sd(prx2014[, j])
 # 	}
 # }
-head(prx2014)
+head(prx2014)[, 1:2]
+head(prx)[, 1:2]
 
 setwd(master_dir)
 
-load(file = paste("arnn_video", "2013", paste(Outputs, collapse = ""), ".RData", sep = ""))
+load(file = paste("arnn_videoSTRS2013", paste(Outputs, collapse = ""), ".RData", sep = ""))
 arnn$call
 
-load(file = paste("rndf_video", "2013", paste(Outputs, collapse = ""), ".RData", sep = ""))
+load(file = paste("rndf_videoSTRS2013", paste(Outputs, collapse = ""), ".RData", sep = ""))
 rndf$confusion
 
 clear_rdnf <- video_files_cur[as.vector(predict(object = rndf, newdata = prx2014)) == "Clear"]
@@ -122,7 +128,6 @@ clear_rdnf
 require(neuralnet)
 arnn_result <- compute(x = arnn, covariate = prx2014[, na.omit(as.vector(str_match(names(prx2014), "Video.+")))])
 arnn_result <- collapse(Outputs = Outputs, Outputs_f = Outputs_f, result = arnn_result$net.result)
-arnn_result
 require(stringr)
 clear_arnn <- video_files_cur[is.na(str_match(as.vector(arnn_result[, 1]), ".+Clear")) == FALSE]
 clear_arnn
@@ -144,6 +149,11 @@ for(clear in clear_rdnf) {
 	dest_dir = "/home/jim/Dropbox/REM/Tasks/video_cluster/clust2014/Clear"
 	system(paste("cp ", from_dir, "/", clear, ".jpg", " ", dest_dir, sep = ""))
 }
+
+ccipca[["Clear"]] <- Clear
+ccipca[["Cloudy"]] <- Cloudy
+
+# save.image(paste("ccipca_video", year, ".RData", sep = ""))
 
 # ----------------------------------------
 # run feature detection
@@ -169,7 +179,7 @@ source("Video_features.r")
 # train video data on existing setwd
 
 setwd(master_dir)
-N = 1000
+N = 10
 
 setwd(master_dir)
 load(paste("ccipca_video", year, ".RData", sep = ""))
