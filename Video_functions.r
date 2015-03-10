@@ -109,31 +109,45 @@ CCIPCA_RepFrames <- function(RepFrames_new, n_components, rerun) {
 
 	require(rPython)
 
-	# turn RepFrames into matrix for python code
-	RepFrames_new <- matrix(unlist(RepFrames_new[1:nrow(RepFrames_new), 1:ncol(RepFrames_new)]), nrow = nrow(RepFrames_new), byrow = FALSE)
-
-	# n_components <- n_components + nrow(RepFrames_new)
-	# n_components
+	# # turn RepFrames into matrix for python code
+	# RepFrames_new <- matrix(unlist(RepFrames_new[1:nrow(RepFrames_new), 1:ncol(RepFrames_new)]), nrow = nrow(RepFrames_new), byrow = FALSE)
 
 	setwd(master_dir)
 	if(file.exists(paste("ccipca_video", year, ".RData", sep = "")) == TRUE & rerun == 0) {
 
-		if(nrow(components_) > 0 & nrow(components_) < n_components) {
-			n_zeroes <- n_components - nrow(components_)
-			zeroes <- matrix(0, nrow = n_zeroes, ncol = 3*H*W)
-			components_ <- rbind(components_, zeroes)
-		}
+		load(paste("ccipca_video", year, ".RData", sep = ""))
 
-		python.assign("iteration", iteration) 
-		python.assign("amnesic", amnesic)
-		python.assign("copy", copy)  
-		python.assign("mean_", mean_)  
-		python.assign("components_", components_)  
+		n_components <- n_components + nrow(RepFrames_new)
+		iteration <- ccipca[["iteration"]]
+		amnesic <- ccipca[["amnesic"]]
+		copy <- ccipca[["copy"]]
+		mean_ <- ccipca[["mean_"]]
+		components_ <- ccipca[["components_"]]
+
+		components_ <- components_[seq(1, n_components, 1), ]
+    
+    	rerun <- 0
+
+	} else {
+
+		iteration <- NA
+		amnesic <- NA
+		copy <- NA
+		mean_ <- NA
+		components_ <- NA
+
+		rerun <- 1
 
 	}
 
 	python.load("CCIPCA_RepFrames.py")
-	ccipca <- python.call("CCIPCA_RepFrames", RepFrames_new, n_components, rerun)
+	ccipca <- python.call("CCIPCA_RepFrames", RepFrames_new, n_components
+		, iteration
+		, amnesic
+		, copy
+		, mean_
+		, components_
+		, rerun )
 
 	return(ccipca)
 
