@@ -20,14 +20,13 @@ for(name in names(prx)){
 require(stringr)
 prx$Filenames <- ccipca[["video_files_cur"]]
 clusters <- ccipca[["clusters"]]
-ImageClarity
 prx$ImageClarity <- ImageClarity
 prx$IfBiotic <- IfBiotic
 
-ccipca[["ImageClarity"]] <- ImageClarity
-ccipca[["IfBiotic"]] <- IfBiotic
+Clear <- ccipca[["Clear"]]
+Cloudy <- ccipca[["Cloudy"]]
 
-# save.image(paste("ccipca_video", year, ".RData", sep = ""))
+prx <- prx[prx$Filenames %in% Clear | prx$Filenames %in% Cloudy, ]
 
 # ------------------------------------------------------
 # load video log data
@@ -88,19 +87,15 @@ if(mac == FALSE) {
 
 # ------------------------------------------------------
 # merged data set
-data_o <- merge(x = prx, y = Video_Analysis_Log_mu, by.x = "Filenames", by.y = "Filenames")
+data_o <- merge(x = prx, y = Video_Analysis_Log_mu, by.x = "Filenames", by.y = "Filenames", all.x = TRUE)
 
 setwd(master_dir)
 if(file.exists(paste("data_areas", year, ".RData", sep = "")) == TRUE & c("IfBiotic") %in% Outputs) {
 	load(paste("data_areas", year, ".RData", sep = ""))
-	data <- merge(x = data_o, y = areas, by.x = "Filenames", by.y = "Filenames")
+	data <- merge(x = data_o, y = areas, by.x = "Filenames", by.y = "Filenames", all = TRUE)
 } else {
 	data <- data_o	
 }
 
 save(data, file = paste("data_video", year, ".RData", sep = ""))
 write.csv(data, file = paste("data_video", year, ".csv", sep = ""))
-
-head(data)
-data$IfBiotic
-nrow(data)
