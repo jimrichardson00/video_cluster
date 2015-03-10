@@ -10,10 +10,10 @@ def Remove_trap( frame ):
 
   height, width, depth = frame.shape
 
-  x1 = int(math.floor(Decimal(0.26041666666)*Decimal(width)))
-  x2 = int(math.floor(Decimal(0.73958333334)*Decimal(width)))
+  x1 = int(round(Decimal(0.26041666666)*Decimal(width)))
+  x2 = int(round(Decimal(0.73958333334)*Decimal(width)))
   y1 = 0
-  y2 = int(math.floor(Decimal(0.65555555555)*Decimal(height)))
+  y2 = int(round(Decimal(0.65555555555)*Decimal(height)))
 
   frame = frame[y1:y2, x1:x2]
 
