@@ -17,12 +17,20 @@ from decimal import *
 import math
 import numpy
 
-def CCIPCA_RepFrames( RepFrames_new, n_components, rerun ):
+def CCIPCA_RepFrames( RepFrames_new, n_components
+  , iteration
+  , amnesic
+  , copy
+  , mean_
+  , components_
+  , rerun ):
 
   n_components = int(n_components)
   rerun = int(rerun)
 
   ccipca = CCIPCA(n_components = n_components)
+
+  print "initialized"
 
   if rerun == 0:
 
@@ -40,8 +48,12 @@ def CCIPCA_RepFrames( RepFrames_new, n_components, rerun ):
     ccipca.mean_ = mean_  
     ccipca.components_ = components_
 
+  print 'read in existing values'
+
   ccipca = ccipca.fit(RepFrames_new)
-  prx =  ccipca.transform(RepFrames_new)
+  # prx =  ccipca.transform(RepFrames_new)
+
+  print 'has run ccipca'
 
   ccipca_dict = {}
 
@@ -75,8 +87,10 @@ def CCIPCA_RepFrames( RepFrames_new, n_components, rerun ):
   components_ = json.loads(json.dumps(components_.tolist()))
   ccipca_dict["components_"] = components_
 
-  prx = numpy.array(prx)
-  prx = json.loads(json.dumps(prx.tolist()))
-  ccipca_dict["prx"] = prx
+  # prx = numpy.array(prx)
+  # prx = json.loads(json.dumps(prx.tolist()))
+  # ccipca_dict["prx"] = prx
 
-  return ccipca_dict
+  print "return"
+
+  # return ccipca_dict
