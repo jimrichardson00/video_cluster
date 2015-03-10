@@ -1,5 +1,6 @@
 setwd(master_dir)
-load(file = paste("data_video", year, ".RData", sep = ""))
+# load(file = paste("data_video", year, ".RData", sep = ""))
+load(file = paste("data_videoSTRS2013.RData", sep = ""))
 
 # ---------------------------------------------
 
@@ -196,5 +197,6 @@ for(o in seq(1, length(Outputs), 1)) {
 
 }
 
-save(per_correct_resu, file = paste("per_correct_video", paste(Outputs, collapse = ""), ".RData", sep = ""))
+print(paste("per_correct_video", year, paste(Outputs, collapse = ""), ".RData", sep = ""))
+save(per_correct_resu, file = paste("per_correct_video", year, paste(Outputs, collapse = ""), ".RData", sep = ""))
 
