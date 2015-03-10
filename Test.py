@@ -36,4 +36,12 @@ def Hello_world( video_file, master_dir ):
 
   return video_file
 
+def print_thing( thing1 ):
+
+  print thing1
+  print thing2
+
+print thing1
+print thing2
+
 

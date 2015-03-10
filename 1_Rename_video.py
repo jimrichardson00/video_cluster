@@ -5,6 +5,7 @@ import time
 import datetime
 import re
 import shutil
+import fnmatch
 
 def Rename_video( from_idx, from_dir, to_dir ):
 
@@ -14,8 +15,10 @@ def Rename_video( from_idx, from_dir, to_dir ):
 
   #cycles through folders in directory
   for folder in os.listdir(from_dir):
+
     #sets the full path of each folder
     folder_path = os.path.abspath(os.path.join(from_dir,folder))
+    
     #sets root and extension of each folder
     folderRoot, fileExtension = os.path.splitext(folder_path)
     if fileExtension == '':
@@ -32,6 +35,7 @@ def Rename_video( from_idx, from_dir, to_dir ):
 
     # folder path
     folder_path = os.path.abspath(os.path.join(from_dir,folder))
+
     #sets root and extension of each folder
     folderRoot, fileExtension = os.path.splitext(folder_path)
 
@@ -39,39 +43,37 @@ def Rename_video( from_idx, from_dir, to_dir ):
     # match_ST = re.search(r'Set(\d+)Trap(\d+)', folder)
     match_ST = re.search(r'[a-zA-Z]+(\d+)[a-zA-Z]+(\d+)', folder)
 
-    print match_ST
-
     Set = match_ST.group(1)
     Trap = match_ST.group(2)
 
-    Set = str(Set).zfill(4)
-    Trap = str(Trap).zfill(4)
+    Set = str(Set).zfill(3)
+    Trap = str(Trap).zfill(3)
+
+    print Set
+    print Trap
+    print folder_path
 
     # ----------------------------------------------------------------------
     # first video in each set/trap
 
-    filenames = os.listdir(folder_path)
-    filenames.sort()
+    matches = []
 
-    for filename in filenames:
+    for root, dirnames, filenames in os.walk(folder_path):
 
-      # extract filename path
-      filename_path = os.path.abspath(os.path.join(folder_path, filename))
+      for filename in fnmatch.filter(filenames, '*.MP4'):
 
-      # extract filename extension
-      fileRoot, fileExtension = os.path.splitext(filename_path)
+        # extract filename path
+        filename_path = os.path.abspath(os.path.join(root, filename))
 
-      print filename
+        # extract filename extension
+        fileRoot, fileExtension = os.path.splitext(filename_path)
 
-      print fileRoot
-
-      print fileExtension
-
-      if fileExtension == '.MP4':
+        print filename
+        print fileRoot
+        print fileExtension
+        print 'from dir' + filename_path
 
         match_BF = re.search(r'(.+)\.MP4', filename)
-
-        print match_BF
 
         base_filename = match_BF.group(1)
 
@@ -79,9 +81,9 @@ def Rename_video( from_idx, from_dir, to_dir ):
         shutil.move(filename_path, to_dir)
 
         # new filename
-        NewFilename = from_idx + '_' + 'S' + str(Set) + 'T' + str(Trap) + '_' + str(base_filename) + ".mp4"
+        NewFilename = from_idx + '_' + 'S' + str(Set) + 'T' + str(Trap) + '_' + str(base_filename) + ".MP4"
         
-        print NewFilename
+        print 'new filename ' + NewFilename
 
         # new filename path
         NewFilename_path = os.path.abspath(os.path.join(to_dir, NewFilename))
@@ -91,7 +93,3 @@ def Rename_video( from_idx, from_dir, to_dir ):
 
         # renames the file
         os.rename(filename_path, NewFilename_path)
-
-        
-
-
