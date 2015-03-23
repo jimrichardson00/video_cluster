@@ -87,13 +87,13 @@ def Detect_features( img, to_dir, jpg_name ) :
     , img2, Decimal(1) - (Decimal(1)/Decimal(count)), 0)
 
   os.chdir(to_dir)
-  cv2.imwrite(max_area + jpg_name + '01' + '.jpg', reduce_col)
-  cv2.imwrite(max_area + jpg_name + '02' + '.jpg', img_o)
-  cv2.imwrite(max_area + jpg_name + '03' + '.jpg', edges)
-  cv2.imwrite(max_area + jpg_name + '04' + '.jpg', mask)
-  cv2.imwrite(max_area + jpg_name + '05' + '.jpg', dilation)
-  cv2.imwrite(max_area + jpg_name + '06' + '.jpg', hue_edge)
-  cv2.imwrite(max_area + jpg_name + '07' + '.jpg', mask_inv)
+  # cv2.imwrite(max_area + jpg_name + '01' + '.jpg', reduce_col)
+  # cv2.imwrite(max_area + jpg_name + '02' + '.jpg', img_o)
+  # cv2.imwrite(max_area + jpg_name + '03' + '.jpg', edges)
+  # cv2.imwrite(max_area + jpg_name + '04' + '.jpg', mask)
+  # cv2.imwrite(max_area + jpg_name + '05' + '.jpg', dilation)
+  # cv2.imwrite(max_area + jpg_name + '06' + '.jpg', hue_edge)
+  # cv2.imwrite(max_area + jpg_name + '07' + '.jpg', mask_inv)
 
   return areas
 
