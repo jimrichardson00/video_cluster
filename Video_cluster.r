@@ -1,168 +1,193 @@
-# ----------------------------------------------------
-# applies hclust clustering
+# Input:
+# - k (number of groups to be output in clustering)
+# Output:
+# - Loads ccipca data from .RData file
+# - Subsets to frames stored in ccipca data but not stored in (clust_dir)/cur/ImageClarity_validated
+# - For these files, loads the reduced dimension data set.
+# - Runs a hireachical clustering algorithm on reduced dimesion data set. Details are as follows; k = 40 groups (set in Video_master.r), usual euclidean distance used for dissimilarity matrix, ward.D2 used for agglomeration method.
+# - Clustering algorithm groups together frames which are close together in this space (frames look similar).
+# - Copies all jpgs into (clust_dir)/new, and for each cluster group i, copies jpgs in group i to folder (clust_dir)/new/i.
 
-setwd(master_dir)
-load(paste("ccipca_video", year, ".RData", sep = ""))
+# sets frames as images contained in frame_dir
+require(stringr)
+frames <- str_match(list.files(frame_dir, pattern = ".jpg"), "(.+)\\.jpg")[, 2]
 
-prx <- ccipca[["prx"]]
-prx <- as.data.frame(prx)
-row.names(prx) <- ccipca[["video_files_cur"]]
-
-# define distance and number of clusters
-dist <- dist(prx, method = 'euclidean')
-
-# apply clustering algorithm
-fit <- hclust(dist, method = "ward.D2") 
-
-# pull out cluster names
-require(dendroextras)
-sl <- slice(fit, k = k)
-sl <- as.matrix(sl)
-sl <- as.data.frame(sl)
-sl$rn <- row.names(sl)
-sl <- sl[order(sl$rn),]
-
-# define cluster names
-clusters <- sl$V1
-clusters
-
-# create png of dendogram
-setwd(master_dir)
-
-colours <- rainbow(k)
-colours
-
-memb <- cutree(fit, k = k)
-cent <- NULL
-for(cl in 1:k){
-  cent <- rbind(cent, colMeans(prx[memb == cl, , drop = FALSE]))
+# sets frames_cur as images contained in (clust_dir)/cur/ImageClarity_validated
+length(list.files(paste(clust_dir, "/cur/ImageClarity_validated", sep = ""), pattern = ".jpg")) > 0
+if(length(list.files(paste(clust_dir, "/cur/ImageClarity_validated", sep = ""), pattern = ".jpg")) > 0) {
+  frames_cur <- na.omit(str_match(list.files(paste(clust_dir, "/cur/ImageClarity_validated", sep = ""), pattern = ".jpg"), "(.+)\\.jpg")[, 2])
+} else {
+  frames_cur <- vector()
 }
 
-# pdf("Video__hclust_dendrogram.pdf")
-# fit_col <- colour_clusters(fit, k = k, groupLabels = TRUE, col = colours)
-# plot(fit_col)
-# require(dendextend)
-# rect.dendrogram(fit_col, k = k, border = "red")
-# dev.off()
+# sets frames_new as images contained in frames, but not contained in frames_cur
+frames_new <- frames[!(frames %in% frames_cur)]
+frames_new
 
-# pdf("Video_cluster_hclust.pdf")
-# plot(prx[, 1:2], col = colours)
-# points(cent[, 1:2], pch = 16)
-# text(cent[, 1:2], labels = unique(clusters), pos = 3)
-# dev.off()
+# if there are more than 2 frames in frames_new, runs clustering on them
+if(length(frames_new) >= 2) {
 
-fit_col <- colour_clusters(fit, k = k, groupLabels = TRUE, col = colours)
-plot(fit_col)
-require(dendextend)
-# rect.dendrogram(fit_col, k = k, border = "red")
-dev.new()
+	# if there are less than k frames in frames_new, sets k = length(frames_new)
+  if(k > length(frames_new)) {
+    k <- length(frames_new)
+  }
 
-plot(prx[, 1:2], col = colours)
-points(cent[, 1:2], pch = 16)
-text(cent[, 1:2], labels = unique(clusters), pos = 3)
+  # loads ccipca data, subsets reduced dimension data set prx to frames_new
+  setwd(master_dir)
+  load(paste("ccipca_video", year, ".RData", sep = ""))
+  prx <- ccipca[["prx"]]
+  prx <- as.data.frame(prx)
+  video_files_cur <- ccipca[["video_files_cur"]]
+  row.names(prx) <- video_files_cur
+  prx <- prx[ccipca[["video_files_cur"]] %in% frames_new, ]
 
-# --------------------------------------------------
-# applies kmeans clustering
+  # ------------------------------------------------
 
-# setwd(master_dir)
-# load(paste("ccipca_video", year, ".RData", sep = ""))
+  # define distance and number of clusters
+  dist <- dist(prx, method = 'euclidean')
 
-# prx <- ccipca[["prx"]]
-# prx <- as.data.frame(prx)
-# row.names(prx) <- ccipca[["video_files_cur"]]
+  # apply clustering algorithm
+  fit <- hclust(dist, method = "ward.D2") 
 
-# # n_compenents d
-# k <- 30
-# km <- kmeans(ccipca[["prx"]], centers = k) 
-# clusters <- km$cluster
+  # pull out cluster names
+  require(dendroextras)
+  sl <- slice(fit, k = k)
+  sl <- as.matrix(sl)
+  sl <- as.data.frame(sl)
+  sl$rn <- row.names(sl)
+  sl <- sl[order(sl$rn),]
 
-# setwd(master_dir)
-# png("Video_cluster.png")
-# plot(ccipca[["prx"]][, 1], ccipca[["prx"]][, 2], col = km$cluster)
-# points(km$centers[, c(1, 2)], pch = 16)
-# text(km$centers[, 1:2], labels = sort(unique(clusters)), pos = 3)
-# dev.off()
+  # define cluster names
+  clusters <- sl$V1
+  clusters
 
-# ---------------------------------------------------
+  # create png of dendogram
+  setwd(master_dir)
 
-ccipca[["clusters"]] <- clusters
-save(ccipca, file = paste('ccipca_video', year, '.RData', sep = ''))
+  # set colours as rainbow of length k
+  colours <- rainbow(k)
+  colours
 
-# ---------------------------------------------------
-# copies frames into cluster folders, and into rep_frames folder
+  # calculates centriod of each group
+  memb <- cutree(fit, k = k)
+  cent <- NULL
+  for(cl in 1:k){
+    cent <- rbind(cent, colMeans(prx[memb == cl, , drop = FALSE]))
+  }
 
-# # deletes rep_frames folder, then creates it (aviods overlap)
-system(paste('rm -r ', clust_dir, sep = ""))
-system(paste('mkdir ', clust_dir, sep = ""))
+  # plots dendogram of clustering, writes to .jpeg
+  jpeg("Video_hclust_dendrogram.jpeg")
+  fit_col <- colour_clusters(fit, k = k, groupLabels = TRUE, col = colours)
+  plot(fit_col)
+  require(dendextend)
+  rect.dendrogram(fit_col, k = k, border = "red")
+  dev.off()
 
-# cycles through clusters
-for(cluster in sort(unique(clusters))) {
+  # plots points and cluster centriods projected onto Princ1, Princ2, writes to .jpeg
+  jpeg("Video_cluster_hclust.jpeg")
+  plot(prx[, 1:2], col = colours)
+  points(cent[, 1:2], pch = 16)
+  text(cent[, 1:2], labels = unique(clusters), pos = 3)
+  dev.off()
 
-	print(cluster)
+  # plots dendogram of clustering, writes to .jpeg
+  fit_col <- colour_clusters(fit, k = k, groupLabels = TRUE, col = colours)
+  plot(fit_col)
+  require(dendextend)
+  # rect.dendrogram(fit_col, k = k, border = "red")
+  dev.new()
 
-	# deletes cluster folder, then creates it (aviods overlap)
-	system(paste("rm -r ", clust_dir, "/", cluster, sep = ""))
-	system(paste("mkdir ", clust_dir, "/", cluster, sep = ""))
+  # plots points and cluster centriods projected onto Princ1, Princ2, writes to .jpeg
+  plot(prx[, 1:2], col = colours)
+  points(cent[, 1:2], pch = 16)
+  text(cent[, 1:2], labels = unique(clusters), pos = 3)
 
-	video_files_cl <- ccipca[["video_files_cur"]][clusters == cluster]
-	video_files_cl
+  # -------------------------------------------------# applies kmeans clustering
 
-	for(i in seq(1, sum(clusters == cluster), 1)){
+  # # loads ccipca data, subsets reduced dimension data set prx to frames_new
+  # setwd(master_dir)
+  # load(paste("ccipca_video", year, ".RData", sep = ""))
+  # prx <- ccipca[["prx"]]
+  # prx <- as.data.frame(prx)
+  # video_files_cur <- ccipca[["video_files_cur"]]
+  # row.names(prx) <- video_files_cur
+  # prx <- prx[ccipca[["video_files_cur"]] %in% frames_new, ]
 
-		# name = video_files_cl[i]
-		# data = ccipca[["RepFrames_cur"]][clusters == cluster, ][i, ]
+  # # apply clustering algorithm
+  # km <- kmeans(ccipca[["prx"]], centers = k) 
+  # clusters <- km$cluster
 
-		# dest_dir = clust_dir
-		# Output_image(name = name, data = data, dest_dir = dest_dir, W = W, H = H)
+  # setwd(master_dir)
+  # jpeg("Video_cluster_kmeans.jpeg")
+  # plot(ccipca[["prx"]][, 1], ccipca[["prx"]][, 2], col = clusters)
+  # points(km$centers[, c(1, 2)], pch = 16)
+  # text(km$centers[, 1:2], labels = sort(unique(clusters)), pos = 3)
+  # dev.off()
 
-		# dest_dir = paste(clust_dir, "/", cluster, sep = "")
-		# Output_image(name = name, data = data, dest_dir = dest_dir, W = W, H = H)
+  # -----------------------------------------------
+	# Copies all jpgs into (clust_dir)/new, and for each cluster group i, copies jpgs in group i to folder (clust_dir)/new/i.
 
-		# video_file = video_files_cl[i]
+  # deletes (clust_dir)/new folder, then creates it
+  system(paste('rm -r ', clust_dir, "/new", sep = ""))
+  system(paste('mkdir ', clust_dir, "/new", sep = ""))
 
-		# dest_dir = clust_dir
-		# system(paste("cp ", frame_dir, "/", video_file, ".jpg", " ", dest_dir, sep = ""))
+  # cycles through clusters
+  for(cluster in sort(unique(clusters))) {
 
-		# dest_dir = paste(clust_dir, "/", cluster, sep = "")
-		# system(paste("cp ", frame_dir, "/", video_file, ".jpg", " ", dest_dir, sep = ""))
+    print(paste("Cluster: ", cluster, sep = ""))
 
-		video_file = video_files_cl[i]
-		video_file
+    # deletes cluster folder, then creates it (aviods overlap)
+    system(paste("rm -r ", clust_dir, "/new/", cluster, sep = ""))
+    system(paste("mkdir ", clust_dir, "/new/", cluster, sep = ""))
 
-		dest_dir = clust_dir
-		require(rPython)
-		setwd(master_dir)
-		python.load("Remove_trap.py")
-		python.assign("video_file", video_file)
-		python.assign("frame_dir", frame_dir)
-		python.assign("dest_dir", dest_dir)
-		python.exec("
-		import cv2
-		import os
-		os.chdir(frame_dir)
-		frame = cv2.imread(video_file + '.jpg')
-		frame = Remove_trap( frame )
-		os.chdir(dest_dir)
-		cv2.imwrite(video_file + '.jpg', frame)
-		")
+    # subsets to images within cluster
+    video_files_cl <- row.names(prx)[clusters == cluster]
+    video_files_cl
 
-		dest_dir = paste(clust_dir, "/", cluster, sep = "")
-		require(rPython)
-		setwd(master_dir)
-		python.load("Remove_trap.py")
-		python.assign("video_file", video_file)
-		python.assign("frame_dir", frame_dir)
-		python.assign("dest_dir", dest_dir)
-		python.exec("
-		import cv2
-		import os
-		os.chdir(frame_dir)
-		frame = cv2.imread(video_file + '.jpg')
-		frame = Remove_trap( frame )
-		os.chdir(dest_dir)
-		cv2.imwrite(video_file + '.jpg', frame)
-		")
+    # for each image in cluster i, copies to (cluster_dir)/new and (cluster_dir)/new/i
+    for(i in seq(1, sum(clusters == cluster), 1)){
 
-	}
+    	# sets video_file as ith frame in current cluster
+      video_file = video_files_cl[i]
+      video_file
+
+      # copies video_file to (cluster_dir)/new
+      dest_dir = paste(clust_dir, "/new", sep = "")
+      require(rPython)
+      setwd(master_dir)
+      python.load("Remove_trap.py")
+      python.assign("video_file", video_file)
+      python.assign("frame_dir", frame_dir)
+      python.assign("dest_dir", dest_dir)
+      python.exec("
+      import cv2
+      import os
+      os.chdir(frame_dir)
+      frame = cv2.imread(video_file + '.jpg')
+      frame = Remove_trap( frame )
+      os.chdir(dest_dir)
+      cv2.imwrite(video_file + '.jpg', frame)
+      ")
+
+      # copies video_file to (cluster_dir)/new/i
+      dest_dir = paste(clust_dir, "/new/", cluster, sep = "")
+      require(rPython)
+      setwd(master_dir)
+      python.load("Remove_trap.py")
+      python.assign("video_file", video_file)
+      python.assign("frame_dir", frame_dir)
+      python.assign("dest_dir", dest_dir)
+      python.exec("
+      import cv2
+      import os
+      os.chdir(frame_dir)
+      frame = cv2.imread(video_file + '.jpg')
+      frame = Remove_trap( frame )
+      os.chdir(dest_dir)
+      cv2.imwrite(video_file + '.jpg', frame)
+      ")
+
+    }
+  }
 }
 
