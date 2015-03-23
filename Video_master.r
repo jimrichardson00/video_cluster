@@ -4,21 +4,22 @@ n_cores = detectCores(all.tests = FALSE, logical = FALSE) - 1
 require(doParallel)
 registerDoParallel(cores = n_cores)
 
-H = 230
-W = 177
-Hgp = 1080
+W = 230
+H = 177
 Wgp = 1920
+Hgp = 1080
 skip = 6
 year = ""
 # year = "STRS2013"
 # year = "STRS2014"
+# year = "SKBO2013"
 # year = "SKBO2014"
-# mac = TRUE
-mac = FALSE
+mac = TRUE
+# mac = FALSE
 if(mac == TRUE) {
-	master_dir = "/Users/jimrichardson/Dropbox/REM/Tasks/video_cluster"
-	} else {
-	master_dir = "/home/jim/Dropbox/REM/Tasks/video_cluster"
+  master_dir = "/Users/jimrichardson/Dropbox/REM/Tasks/video_cluster"
+  } else {
+  master_dir = "/home/jim/Dropbox/REM/Tasks/video_cluster"
 }
 frame_dir = paste(master_dir, "/frame", year, sep = "")
 coral_dir = paste(master_dir, "/coral", year, sep = "")
@@ -26,6 +27,52 @@ video_dir = paste(master_dir, "/video", year, sep = "")
 audio_dir = paste(master_dir, "/audio", year, sep = "")
 proje_dir = paste(master_dir, "/proje", year, sep = "")
 clust_dir = paste(master_dir, "/clust", year, sep = "")
+eigen_dir = paste(master_dir, "/eigen", year, sep = "")
+
+# --------------------------------------------------
+
+require(tcltk)      # Load the TclTk package
+tt <- tktoplevel()  # Create a new toplevel window
+tktitle(tt) <- "Initial run"  # Give the window a title
+done <- tclVar(0)   # tclVar() creates a Tcl variable
+Y.but <- tkbutton(tt, text = "  Y  ",
+    command = function() tclvalue(done) <- 1)
+N.but <- tkbutton(tt, text = "  N  ",
+    command = function() tclvalue(done) <- 0)
+Cancel.but <- tkbutton(tt, text = "Cancel",
+    command = function() tclvalue(done) <- 2)
+# Place the two buttons on the same row in their assigned window (tt)
+tkgrid(Y.but, N.but, Cancel.but)
+# Capture the event "Destroy" (e.g. Alt-F4 in Windows) and when this happens,
+# assign 2 to done
+tkbind(tt, "<Destroy>", function() tclvalue(done) <- 2)
+tkfocus(tt)         # Place the focus to our tk window
+# Do not proceed with the following code until the variable done is non-zero.
+# (but other processes can still run, i.e., the system is not frozen)
+tkwait.variable(done)
+# The variable done is now non-zero, so we would like to record its value before
+# destroying the window tt.  If we destroy it first, then done will be set to 2
+# because of our earlier binding, but we want to determine whether the user
+# pressed OK (i.e., see whether done is equal to 1)
+doneVal <- as.integer(tclvalue(done))   # Get and coerce content of a Tcl variable
+tkdestroy(tt)
+
+# Test the result
+if (doneVal == 2) {
+  stop("Cancelled!")
+} else if (doneVal == 0) {
+  inital_run <- FALSE
+} else if (doneVal == 1) {
+  inital_run <- TRUE
+}
+
+if(inital_run == TRUE) {
+  setwd(master_dir)
+  source("Video_cleaning.r")
+}
+
+# setwd(master_dir)
+# source("Video_cleaning.r")
 
 # --------------------------------------------
 # sources functions needed
@@ -33,15 +80,39 @@ setwd(master_dir)
 source("Video_functions.r")
 
 # --------------------------------------------
-# copies videos into one folder with labels
+# The code will copy a video file GOPRdddd.MP4 with trip code STRS2013 (for example) and folder SetXXXTrapYYYCameraZZZ into video_dir with filename: STRS2013_SXXXTYYYCZZZ_GOPRdddd.MP4. 
 
-from_dirs = c("/home/jim/Desktop/2014 SKB video")
-from_idxs = c("SKBO2014")
-to_dir =  video_dir
-# source("Video_prepfile.r")
+# list of directories that contain the videos for each trip (stored in subfolders of the form SetXXXTrapYYYCameraZZZ):
+from_dirs = c(
+  "/Users/jimrichardson/Desktop/2013 survey video", 
+  "/Users/jimrichardson/Desktop/2014 survey video", 
+  "/Users/jimrichardson/Desktop/SKB 2013 video",
+  "/Users/jimrichardson/Desktop/2014 SKB video"
+  )
+# list of trip codes for each trip. must match with from_dirs.
+from_idxs = c(
+  "STRS2013", 
+  "STRS2014", 
+  "SKBO2013", 
+  "SKBO2014"
+  )
+setwd(master_dir)
+source("Video_prepfile.r")
 
 # --------------------------------------------
-# applies ccipca on video data and saves it to rdata
+# Calculates average frame for each video, skipping the first few seconds (can customize this with variable 'skip'). Writes frame to frame_dir as a jpg.
+
+setwd(master_dir)
+source("Video_frames.r")
+
+# --------------------------------------------
+# For new files in frame_dir; removes trap, resizes frame, copies the data from the resulting image into a matrix.
+# If principal component analysis (ccipca) already exists from previous data:
+  # Adds new data to current ccipca
+# If no ccipca exists:
+  # Runs a ccipca on this matrix.
+# Writes ccipca info (mean, components, iteration, copy, amnesic) to .txt files. 
+# Reads in .txt files to R and saves all info (including data matrix, mean, components, and projection of data to components) to .RData file
 
 rerun = 0
 fast = 0
@@ -49,34 +120,53 @@ setwd(master_dir)
 source("Video_ccipca.r")
 
 # ---------------------------------------------------
-# copies frames into cluster folders, and into rep_frames folder
+# Loads ccipca data from .RData file, subsets to new files, runs a k-means clustering algorithm on the reduced dimension data set. Clusters together frames which are close together in this space. k is currently set at k = 40. Copies all jpgs into (clust_dir)/new, and for each cluster group i, copies jpgs in group i to folder clust/new/i.
 
 k = 40
 setwd(master_dir)
 source("Video_cluster.r")
+graphics.off()
 
 # ----------------------------------------
-# train video data on existing setwd
+# Dialogue box
+# Need to manually validate new frames in terms of their ImageClarity (Clear/Cloudy)
+# Instructions are in Initial_instructions.txt
+
+# - Copy jpgs designated as Clear to (clust_dir)/cur/Clear
+# - Copy jpgs that have been validated as either Clear/Cloudy into (clust_dir)/cur/ImageClarity_validated
+# - Delete all files from (clust_dir)/new
+
+if(inital_run == TRUE) {
+  require(tcltk)
+  button <- tkmessageBox(title = 'Message',
+    message = 
+    'Validate clear frames
+    Initial run only
+      Check each jpg in (clust_dir)/new, and decide if image is Clear/Cloudy. The cluster groups can help with this, since you may only need to check each cluster group rather every single file. Clear images tend to cluster together.
+
+      -Copy jpgs designated as Clear to (clust_dir)/cur/Clear
+      -Copy jpgs that have been validated as either Clear/Cloudy into (clust_dir)/cur/ImageClarity_validated
+      -Delete all files from (clust_dir)/new'
+    ,
+    type='ok')
+  button <- tclvalue(button)
+    if(button == 'ok'){
+  }
+}
+
+# ----------------------------------------
+# Run: Video_training_data.r, Video_training.r
+# Creates data set with rows as images, columns as:
+  # Principal components (normalized so var = 1) for all images : Princ1, Princ2,....,
+  # Area data (normalized so var = 1) for Clear images (NA otherwise): Areas1, Areas2,....,
+  # ImageClarity for validated images (NA otherwise) 
+  # BioticMaterial for Clear, validated images (NA otherwise)
+  # Species information and other analysis from manual video analysis 
+# Subsets to images that have Clear/Cloudy validated, and cross validates classifier.
+# Prints and saves results.
 
 setwd(master_dir)
 N = 10
-
-setwd(master_dir)
-load(paste("ccipca_videoSTRS2013.RData", sep = ""))
-video_files_cur <- ccipca[["video_files_cur"]]
-
-Clear <- character(0)
-require(stringr)
-Clear <- na.omit(str_match(list.files(paste(clust_dir, "/Clear", sep = "")), "(.+)\\.jpg")[, 2])
-Clear
-ImageClarity <- ifelse(video_files_cur %in% Clear, "Clear", "Cloudy")
-ImageClarity
-
-Biotic <- character(0)
-list.files(paste(clust_dir, "/Clear/IfBiotic", sep = ""))
-IfBiotic <- na.omit(str_match(list.files(paste(clust_dir, "/Clear/IfBiotic", sep = "")), "(.+)\\.jpg")[, 2])
-IfBiotic <- ifelse(video_files_cur %in% Biotic, "1", "0")
-IfBiotic
 
 Outputs <- c("ImageClarity")
 
@@ -84,198 +174,225 @@ source("Video_training_data.r")
 source("Video_training.r")
 
 # ----------------------------------------
-# apply clear classifier to 2014 data
+# if there is new data, run rndf on it
 
-setwd(master_dir)
-load(paste("ccipca_videoSKBO2014.RData", sep = ""))
-# load(paste("ccipca_videoSTRS2014.RData", sep = ""))
-RepFrames_cur <- ccipca[["RepFrames_cur"]]
-video_files_cur <- ccipca[["video_files_cur"]]
-video_files_cur
-mean_ <- ccipca[["mean_"]]
+load(file = paste("data_train", year, ".RData", sep = ""))
+newdata <- data_train[is.na(data_train[, "ImageClarity"]) == TRUE, ]
 
-setwd(master_dir)
-load(paste("ccipca_videoSTRS2013.RData", sep = ""))
-components_ <- ccipca[["components_"]]
+print(paste("New frames to run ImageClarity classifier on: ", nrow(newdata), sep = ""))
 
-prx2014 <- (as.matrix(RepFrames_cur) - matrix(rep(mean_, length(video_files_cur)), ncol = length(mean_), byrow = TRUE)) %*% t(components_)
-prx2014 <- as.data.frame(prx2014)
-names(prx2014) <- paste("Video", seq(1, ncol(prx2014), 1), sep = "")
-# convert to numeric
-for(name in names(prx2014)){
-	prx2014[, name] <- as.numeric(prx2014[, name])
-}
-# # scale so that variance  = 1
-# for(j in 1:ncol(prx2014)) {
-# 	if(is.numeric(prx2014[, j]) == TRUE) {
-# 		prx2014[, j] <- prx2014[, j]/sd(prx2014[, j])
-# 	}
-# }
-head(prx2014)[, 1:2]
-head(prx)[, 1:2]
+if(nrow(newdata) > 0) {
 
-setwd(master_dir)
+  load(paste("rndf_video", year, "ImageClarity.RData", sep = ""))
 
-load(file = paste("arnn_videoSTRS2013", paste(Outputs, collapse = ""), ".RData", sep = ""))
-arnn$call
+  newdata <- data_train[is.na(data_train[, "ImageClarity"]) == TRUE, ]
+  newdata$Filenames
 
-load(file = paste("rndf_videoSTRS2013", paste(Outputs, collapse = ""), ".RData", sep = ""))
-rndf$confusion
+  classifier <- "rndf"
+  for(classifier in c("rndf", "arnn", "nbay")) {
 
-clear_rdnf <- video_files_cur[as.vector(predict(object = rndf, newdata = prx2014)) == "Clear"]
-clear_rdnf
+    load(paste(classifier, "_video", year, "ImageClarity.RData", sep = ""))
 
-require(neuralnet)
-arnn_result <- compute(x = arnn, covariate = prx2014[, na.omit(as.vector(str_match(names(prx2014), "Video.+")))])
-arnn_result <- collapse(Outputs = Outputs, Outputs_f = Outputs_f, result = arnn_result$net.result)
-require(stringr)
-clear_arnn <- video_files_cur[is.na(str_match(as.vector(arnn_result[, 1]), ".+Clear")) == FALSE]
-clear_arnn
+    Clear_classifier <- newdata$Filenames[predict(object = classifier, newdata = newdata[, as.vector(na.omit(str_match(names(newdata), "Princ.+")))]) == "Clear"]
+    Clear_classifier
 
-for(clear in seq(1, length(clear_rdnf), 1)) {
-	print(paste(clear, " ", clear_rdnf[clear], sep = ""))
+    Cloudy_classifier <- newdata$Filenames[predict(object = rndf, newdata = newdata[, as.vector(na.omit(str_match(names(newdata), "Princ.+")))]) == "Cloudy"]
+    Cloudy_classifier
+
+    # deletes cluster folder, then creates it (aviods overlap)
+    system(paste("rm -r ", clust_dir, "/new/Clear_", classifier, sep = ""))
+    system(paste("mkdir ", clust_dir, "/new/Clear_", classifier, sep = ""))
+
+    # deletes cluster folder, then creates it (aviods overlap)
+    system(paste("rm -r ", clust_dir, "/new/Cloudy_", classifier, sep = ""))
+    system(paste("mkdir ", clust_dir, "/new/Cloudy_", classifier, sep = ""))
+
+    jpg <- Clear_classifier[1]
+    for(jpg in newdata$Filenames) {
+      if(jpg %in% Clear_classifier) {
+        from_dir = paste(clust_dir, "/new", sep = "")
+        dest_dir = paste(clust_dir, "/new/Clear_", classifier, sep = "")
+        system(paste("cp ", from_dir, "/", jpg, ".jpg", " ", dest_dir, sep = ""))
+      } else if(jpg %in% Cloudy_classifier) {
+        from_dir = paste(clust_dir, "/new", sep = "")
+        dest_dir = paste(clust_dir, "/new/Cloudy_", classifier, sep = "")
+        system(paste("cp ", from_dir, "/", jpg, ".jpg", " ", dest_dir, sep = ""))
+      }
+    }
+  }
 }
 
-# deletes cluster folder, then creates it (aviods overlap)
-system(paste("rm -r ", "/home/jim/Dropbox/REM/Tasks/video_cluster/clust2014/Clear", sep = ""))
-system(paste("mkdir ", "/home/jim/Dropbox/REM/Tasks/video_cluster/clust2014/Clear", sep = ""))
+# ----------------------------------------
+# if classifier does exist, make adjustment
 
-load(paste("ccipca_video2014.RData", sep = ""))
-video_files_cur <- ccipca[["video_files_cur"]]
+if(inital_run == FALSE) {
+  require(tcltk)
+  button <- tkmessageBox(title = 'Message',
+    message = 'Validate clear frames
+    Adding new data
+      Check each jpg in clust/new/Clear_rndf, clust/new/Clear_arnn, and decide if image is Clear/Cloudy. Check all other images to see if the classifier missed any.
 
-system(paste("mkdir ", dest_dir, sep = ""))
-for(clear in clear_rdnf) {
-	from_dir = "/home/jim/Dropbox/REM/Tasks/video_cluster/clust2014"
-	dest_dir = "/home/jim/Dropbox/REM/Tasks/video_cluster/clust2014/Clear"
-	system(paste("cp ", from_dir, "/", clear, ".jpg", " ", dest_dir, sep = ""))
+      -Copy jpgs designated as Clear to clust/cur/Clear
+      -Copy jpgs that have been validated as either Clear/Cloudy into clust/cur/ImageClarity_validated
+      -Delete all files from clust/new'
+      ,
+    type='ok')
+  button <- tclvalue(button)
+  if(button == 'ok'){
+
+    setwd(master_dir)
+    N = 10
+    Outputs <- c("ImageClarity")
+    source("Video_training_data.r")
+    source("Video_training.r")
+
+  }
 }
-
-ccipca[["Clear"]] <- Clear
-ccipca[["Cloudy"]] <- Cloudy
-
-# save.image(paste("ccipca_video", year, ".RData", sep = ""))
 
 # ----------------------------------------
 # run feature detection
 
 setwd(master_dir)
-load(paste("ccipca_video", year, ".RData", sep = ""))
-
-to_dir = "/home/jim/Dropbox/REM/Tasks/video_cluster/clust2013/Clear/Features"
-frame_dir = "/home/jim/Dropbox/REM/Tasks/video_cluster/frame2013"
-require(stringr)
-video_files = str_match(list.files("/home/jim/Dropbox/REM/Tasks/video_cluster/clust2013/Clear", pattern = "\\.jpg"), "(.+)\\.jpg")[, 2]
-
-# to_dir = "/home/jim/Dropbox/REM/Tasks/video_cluster/clust2014/Clear/Features"
-# frame_dir = "/home/jim/Dropbox/REM/Tasks/video_cluster/frame2014"
-# require(stringr)
-# video_files = str_match(list.files("/home/jim/Dropbox/REM/Tasks/video_cluster/clust2014/Clear", pattern = "\\.jpg"), "(.+)\\.jpg")[, 2]
-
-setwd(master_dir)
-year <- "2013"
 source("Video_features.r")
 
 # ----------------------------------------
-# train video data on existing setwd
+
+# if no classifier exists, copy clear frames by hand
+# if classifier does exist, make adjustment
+
+if(inital_run == TRUE) {
+  require(tcltk)
+  button <- tkmessageBox(title = 'Message',
+    message = 
+    'Validate biotic frames
+    Initial run only
+      Within clear jpgs in (clust_dir)/Clear, decide if image has Presence/Absence of Biotic material. The folder (clust_dir)/Clear/Features can help with this since highlights blobs of distinct colour which can indicate the presence of Bioitic material.
+
+      -Copy jpgs designated as Presence to (clust_dir)/cur/Clear/Presence
+      -Copy jpgs that have been validated as either Presence/Absence into (clust_dir)/cur/Clear/IfBiotic_validated'
+,
+    type='ok')
+  button <- tclvalue(button)
+  if(button == 'ok'){
+  }
+}
+
+# ----------------------------------------
+
+# resave classifier with new data 
+# or train video data
 
 setwd(master_dir)
 N = 10
 
-setwd(master_dir)
-load(paste("ccipca_video", year, ".RData", sep = ""))
-video_files_cur <- ccipca[["video_files_cur"]]
-
-Clear <- character(0)
-require(stringr)
-Clear <- na.omit(str_match(list.files(paste(clust_dir, "/Clear", sep = "")), "(.+)\\.jpg")[, 2])
-Clear
-ImageClarity <- ifelse(video_files_cur %in% Clear, "Clear", "Cloudy")
-ImageClarity
-
-Biotic <- character(0)
-Biotic <- na.omit(str_match(list.files(paste(clust_dir, "/Clear/Biotic", sep = "")), "(.+)\\.jpg")[, 2])
-IfBiotic <- ifelse(video_files_cur %in% Biotic, "1", "0")
-IfBiotic
-
-Outputs <- c("IfBiotic")
+Outputs <- c("BioticMaterial")
 
 source("Video_training_data.r")
 source("Video_training.r")
 
 # ----------------------------------------
-# apply clear classifier to 2014 data
+# if BioticMaterial rndf exists, run on new data
 
-Outputs <- c("IfBiotic")
+load(paste("data_video", year, ".RData", sep =""))
+newdata <- data[is.na(data[, "ImageClarity"]) == FALSE 
+  & data[, "ImageClarity"] == "Clear" 
+  & is.na(data[, "BioticMaterial"]) == TRUE
+  , ]
 
-setwd(master_dir)
-load(paste("data_areas2014.RData", sep = ""))
+print(paste("New frames to run BioticMaterial classifier on: ", nrow(newdata), sep = ""))
 
-setwd(master_dir)
-load(paste("ccipca_video2014.RData", sep = ""))
-video_files_cur <- ccipca[["video_files_cur"]]
-video_files_cur
+if(nrow(newdata) > 0) {
 
-Clear <- character(0)
-require(stringr)
-Clear <- na.omit(str_match(list.files("/home/jim/Dropbox/REM/Tasks/video_cluster/clust2014/Clear"), "(.+)\\.jpg")[, 2])
-Clear
-ImageClarity <- ifelse(video_files_cur %in% Clear, "Clear", "Cloudy")
-ImageClarity
+  load(paste("rndf_video", year, "BioticMaterial.RData", sep = ""))
+  load(paste("data_video", year, ".RData", sep = ""))
 
-setwd(master_dir)
-load(file = paste("arnn_video", "2013", paste(Outputs, collapse = ""), ".RData", sep = ""))
-arnn$call
+  Presence_rdnf <- newdata$Filenames[predict(object = rndf, newdata = newdata[, as.vector(na.omit(str_match(names(newdata), "Areas.+")))]) == "Presence"]
+  Presence_rdnf
 
-load(file = paste("rndf_video", "2013", paste(Outputs, collapse = ""), ".RData", sep = ""))
-rndf$confusion
+  Absence_rdnf <- newdata$Filenames[predict(object = rndf, newdata = newdata[, as.vector(na.omit(str_match(names(newdata), "Areas.+")))]) == "Absence"]
+  Absence_rdnf
 
-biotic_rdnf <- Clear[as.vector(predict(object = rndf, newdata = areas)) == "1"]
-biotic_rdnf
+  # deletes cluster folder, then creates it (aviods overlap)
+  system(paste("rm -r ", clust_dir, "/new/Clear", sep = ""))
+  system(paste("mkdir ", clust_dir, "/new/Clear", sep = ""))
+  system(paste("rm -r ", clust_dir, "/new/Clear/Presence_rdnf", sep = ""))
+  system(paste("mkdir ", clust_dir, "/new/Clear/Presence_rdnf", sep = ""))
+  system(paste("rm -r ", clust_dir, "/new/Clear/Absence_rdnf", sep = ""))
+  system(paste("mkdir ", clust_dir, "/new/Clear/Absence_rdnf", sep = ""))
 
-require(neuralnet)
-arnn_result <- compute(x = arnn, covariate = areas[, na.omit(as.vector(str_match(names(areas), "Areas.+")))])
-arnn_result <- collapse(Outputs = Outputs, Outputs_f = Outputs_f, result = arnn_result$net.result)
-arnn_result
-require(stringr)
-biotic_arnn <- Clear[is.na(str_match(as.vector(arnn_result[, 1]), ".+1")) == FALSE]
-biotic_arnn
+  # copies over from clear
+  for(jpg in newdata$Filenames) {
+    from_dir = paste(clust_dir, "/cur/Clear", sep = "")
 
-for(biotic in seq(1, length(biotic_rdnf), 1)) {
-	print(paste(biotic, " ", biotic_rdnf[biotic], sep = ""))
+    dest_dir = paste(clust_dir, "/new/Clear", sep = "")
+    system(paste("cp ", from_dir, "/", jpg, ".jpg", " ", dest_dir, sep = ""))
+
+    if(jpg %in% Presence_rdnf) {
+      dest_dir = paste(clust_dir, "/new/Clear/Presence_rdnf", sep = "")
+      system(paste("cp ", from_dir, "/", jpg, ".jpg", " ", dest_dir, sep = ""))
+    } else if(jpg %in% Absence_rdnf){
+      dest_dir = paste(clust_dir, "/new/Clear/Absence_rdnf", sep = "")
+      system(paste("cp ", from_dir, "/", jpg, ".jpg", " ", dest_dir, sep = ""))
+    }
+  }
+
 }
-
-# deletes cluster folder, then creates it (aviods overlap)
-system(paste("rm -r ", "/home/jim/Dropbox/REM/Tasks/video_cluster/clust2014/Clear/Biotic", sep = ""))
-system(paste("mkdir ", "/home/jim/Dropbox/REM/Tasks/video_cluster/clust2014/Clear/Biotic", sep = ""))
-
-system(paste("mkdir ", dest_dir, sep = ""))
-for(biotic in biotic_rdnf) {
-	from_dir = "/home/jim/Dropbox/REM/Tasks/video_cluster/clust2014"
-	dest_dir = "/home/jim/Dropbox/REM/Tasks/video_cluster/clust2014/Clear/Biotic"
-	system(paste("cp ", from_dir, "/", biotic, ".jpg", " ", dest_dir, sep = ""))
-}
-
-# deletes cluster folder, then creates it (aviods overlap)
-system(paste("rm -r ", "/home/jim/Dropbox/REM/Tasks/video_cluster/clust2014/Clear/Biotic", sep = ""))
-system(paste("mkdir ", "/home/jim/Dropbox/REM/Tasks/video_cluster/clust2014/Clear/Biotic", sep = ""))
-
-system(paste("mkdir ", dest_dir, sep = ""))
-for(biotic in biotic_arnn) {
-	from_dir = "/home/jim/Dropbox/REM/Tasks/video_cluster/clust2014"
-	dest_dir = "/home/jim/Dropbox/REM/Tasks/video_cluster/clust2014/Clear/Biotic"
-	system(paste("cp ", from_dir, "/", biotic, ".jpg", " ", dest_dir, sep = ""))
-}
-
 
 # ----------------------------------------
 
-proje_dim = 444
-setwd(master_dir)
-# source("Video_projection.r")
+# if no classifier exists, copy clear frames by hand
+# if classifier does exist, make adjustment
 
-# ----------------------------------------
-# Output Eigentraps
+if(inital_run == FALSE) {
+  require(tcltk)
+  button <- tkmessageBox(title = 'Message',
+    message = 
+    'Validate biotic frames
+    Adding new frames
+      Check each jpg in clust/new/Biotic_rndf, clust/cur/Clear_arnn, and decide if image has Presence/Absence of Biotic material. Check all other Clear images in clust/new/Clear to see if the classifier missed any.
 
-n_pc = 10
+      -Copy jpgs designated as presence to clust/cur/Clear/Presence
+      -Copy jpgs that have been validated as either Presence/Absence into clust/cur/Clear/BioticMaterial_validated
+      -Delete all files from clust/new'
+    ,
+    type='ok')
+  button <- tclvalue(button)
+    if(button == 'ok'){
+
+      setwd(master_dir)
+      N = 10
+      Outputs <- c("BioticMaterial")
+      source("Video_training_data.r")
+      source("Video_training.r")
+      
+  }
+}
+
+
+# -----------------------------------------
+
 setwd(master_dir)
-# source("Video_eigenvectors.r")
+N = 10
+N = 1000
+
+Outputs <- c("Species_")
+# Outputs <- c("Species_SAB")
+# Outputs <- c("Species_5AA")
+# Outputs <- c("Species_3S1")
+# Outputs <- c("Species_VSA")
+
+source("Video_training_data.r")
+source("Video_training.r")
+
+# ------------------------------------------
+
+proje_dim = 790
+setwd(master_dir)
+source("Video_projection.r")
+
+# # ----------------------------------------
+# # Output Eigentraps
+
+n_pc = 790
+setwd(master_dir)
+source("Video_eigenvectors.r")
