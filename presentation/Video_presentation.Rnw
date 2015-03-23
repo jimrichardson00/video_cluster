@@ -1,0 +1,564 @@
+
+% -Project goal: 
+
+% Goal: Lots of video data, want an algorithm that will read in a video file and automatically and classify it based on substrate: mud, rock etc.
+
+% Outcome: Did not end up doing this at all, instead developed a algorithm that will read in a video file and automatically classify it in terms of visibility (Clear/Cloudy)
+
+% From the clear videos: will look for features within the image and classify it in terms of Presence/Absence of Biotic material (corals, sponges, fish etc)
+
+% -Video data
+
+% STRS 2013 - 444 videos, about 16 seconds long
+% STRS 2012	- 158 videos, about 56 seconds long
+% SKBO 2014 - 188 videos, about 56 seconds long
+
+% Each frame of video is 1920 x 1080 = lots pixels. There are 3 colour values for each frame. There are n frames in each video.
+
+% -Select representative frame
+
+% Go from video to single frame
+
+% How to do this?
+
+% Landed on calculating a blended image - taking an average of all frames in the video.
+
+% -Remove trap, resize
+
+% This slide is not super interesting. Basically the trap can cause problems later down the line, so I removed it by taking the above square. I then resized the square to 233 x 187 as there was still too much data.
+
+% -Principal component analysis
+
+% So with 790 videos our dataset is a matrix with 790 and 122130 columns. This is still too many columns, so we use a principal component analysis to reduce the dimension. 
+
+% Principal components; 1, 2, 3
+% Projection onto principal components
+
+% -Cluster similiar frames together
+
+% Clear frames, cloudy frames
+% Hirechical clustering diagram
+% For STRS2013, STRS2014, 90% were cloudy, 10% were clear
+
+% -Train Clear/Cloudy classfier
+
+% Trained:
+% 	Artificial neural network
+% 	Random forest
+% 	Naive bays classifier
+
+% Cross validated results
+
+% -Clear frames
+
+% Restrict to clear frames, is there a way to detect anything interesting?
+
+% For example
+% 	Example of a video that is clear with nothing in it
+% 	Example of a video that that has a fish, and some plant life
+
+% Could we turn this into a classifier for Presence/Absence of biotic material?
+
+% -Blob detection
+
+% Interesting in finding differences in blobs of color
+% Translate it from red, green, blue to hue, saturation and value
+% Examining the picture in hue space lets us elimintate noise from saturation
+
+% Python code detects these blobs, and calculates the areas of them.
+
+% -Extract area info from blobs
+
+% From the blobs we can calculate some area info:
+% 	Min area
+% 	Max area
+% 	Mean area
+% 	Number of blobs
+% 	Variance of areas
+
+% Images with some Biotic material in them are likely to have a particular signature in this space.
+
+% -Train Presence/Absence classfier
+
+% Trained:
+% 	Artificial neural network
+% 	Random forest
+% 	Naive bays classifier
+
+% Cross validated results
+
+
+\documentclass{beamer}
+
+\usetheme{boxes}
+
+\usepackage{beamerthemesplit}
+\usepackage{graphicx}
+\usepackage{multimedia}
+
+\def\iso{\cong}
+
+\def\half{{\textstyle \frac12}}
+
+\def\e{\varepsilon}
+\def\spacer{\vbox{\hrule height 12pt width 0pt}}
+\newcommand\faint[1]{\color{cyan}#1\normalcolor}
+
+\newcount\thrmno %% Thrm numbering didn't work with beamer
+
+\def\thrm{\global\advance\thrmno by1
+   \noindent{\textcolor{red}{\bf Theorem:}\quad}}
+\def\thm{\thrm}
+\def\crly{\noindent{\textcolor{red}{\bf Corollary:}\quad}}
+\def\lem{\noindent{\textcolor{red}{\bf Lemma:}\quad}}
+\def\conj{\noindent{\textcolor{red}{\bf Conjecture:}\quad}}
+
+\def\prf{Proof:\ }
+\def\eprf{\hfill$\Box$}
+
+\def\key#1{{\color{blue}\em #1\normalcolor}}
+
+\def\red#1{{\color{red} #1\normalcolor}}
+
+\def\sk{\bigskip}
+
+\def\bp{\bigskip\pause}
+\def\sp{\smallskip\pause}
+
+\newcommand{\pause}{}
+
+\title{Video Processing algorithm}
+\author{Jim Richardson}
+\date{\today}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+<<echo=FALSE>>=
+W = 177
+H = 230
+n_SetTraps = 111
+n_videos = 790
+year = 2013
+n_seconds = 16
+n_traps = 30
+Hgp = 1080
+Wgp = 1920
+frame_rate = 30
+n_clusters = 40
+
+master_dir = "/home/jim/Dropbox/REM/Tasks/video_cluster"
+# master_dir = "/Users/jimrichardson/Dropbox/REM/Tasks/video_cluster"
+frame_dir = paste(master_dir, "/frame", year, sep = "")
+video_dir = paste(master_dir, "/video", year, sep = "")
+audio_dir = paste(master_dir, "/audio", year, sep = "")
+
+@
+
+\frame{\titlepage}
+
+\frame{\tableofcontents}
+
+\section{}
+
+\begin{frame}
+
+\frametitle{Project goal}
+
+\bp
+
+{\bf Goal:}
+Lots of video data, want an algorithm that will read in a video file and automatically and classify it based on substrate: mud, rock etc.
+
+\bp
+
+{\bf Outcome:}
+Not this. 
+
+\bp
+
+Instead developed an algorithm that will read in a video file and:
+
+\bp
+
+\begin{enumerate}
+
+\item Automatically classify it in terms of visibility (Clear/Cloudy)
+
+\bp
+
+\item From the clear videos: will look for features within the image and classify it in terms of Presence/Absence of biotic material (corals, sponges, fish etc)
+
+\end{enumerate}
+
+\end{frame}
+
+\begin{frame}
+
+\frametitle{Video data}
+
+\bp
+
+Three main sets of video data at the moment:
+
+\bp
+
+<<echo=FALSE,results=tex>>=
+data <- read.csv("Video_data_summary.csv", header = TRUE)
+data <- data.frame(data)
+data <- data[, names(data) != "Code"]
+require(xtable)
+data_table <- xtable(data)
+print(data_table)
+@
+
+\bp
+
+The video has a frame rate of $\Sexpr{frame_rate}$ frames per second and a resolution of $H = \Sexpr{Hgp}$ by $W = \Sexpr{Wgp}$ pixels. Each pixel has three numeric values indicating the levels of red, green and blue in the pixel. 
+
+\bp
+
+The data for one frame then would be a vector with $\Sexpr{Hgp} \times \Sexpr{Wgp} \times 3 = \Sexpr{Wgp*Hgp*3}$ dimensions. In a $\Sexpr{n_seconds}$ second video with a frame rate of $\Sexpr{frame_rate}$ frames per second there are $\Sexpr{n_seconds} \times \Sexpr{frame_rate} = \Sexpr{frame_rate*n_seconds}$ such frames.
+
+\end{frame}
+
+\begin{frame}
+
+\frametitle{Select representative frame}
+
+Too much data! Want to go from video to single frame.
+
+\vspace{\baselineskip}
+
+How to do this?
+Tried a number of different methods, but landed on taking an average of all frames in video.
+
+\vspace{\baselineskip}
+
+\movie[height = 0.16875 \textwidth, width = 0.30 \textwidth, loop, autostart]{}{output_n.avi}
+\movie[height = 0.16875 \textwidth, width = 0.30 \textwidth, loop, autostart]{}{output_o.avi}
+\includegraphics[height = 0.16875 \textwidth, width = 0.30 \textwidth]{STRS2013_S036T014_GOPR0347.jpg}
+
+\end{frame}
+
+\begin{frame}
+
+\frametitle{This slide is not very interesting}
+
+The trap can cause problems later down the line, so I removed it by taking the a particular square from each image. I also resized this square to $\Sexpr{H} \times \Sexpr{W}$, (about 6\% of previous area).
+
+\bp
+
+\includegraphics[height = 0.16875 \textwidth, width = 0.30 \textwidth]{STRS2013_S036T014_GOPR0347.jpg}
+
+\bp
+
+\includegraphics[height = 0.16875 \textwidth, width = 0.30 \textwidth]{STRS2013_S036T014_GOPR0347.jpg}
+\includegraphics[height = 0.16875 \textwidth, width = 0.30 \textwidth]{STRS2013_S036T014_GOPR0347_TrapObscure.jpg}
+\includegraphics[height = 0.22790 \textwidth, width = 0.30 \textwidth]{STRS2013_S036T014_GOPR0347_TrapRemoved.jpg}
+
+\bp
+
+This is still too large, as $3 \times \Sexpr{H} \times \Sexpr{W} = \Sexpr{3*H*W}$
+
+\end{frame}
+
+\begin{frame}
+
+\frametitle{Principal component analysis}
+
+So with 790 videos our dataset is a matrix with 790 and $\Sexpr{H*W*3}$ columns. This is still too many columns, so we use a principal component analysis to reduce the dimension. 
+
+\bp
+
+\begin{minipage}{0.45 \textwidth}
+\includegraphics[]{Data.pdf}
+\end{minipage}
+\begin{minipage}{0.05 \textwidth}
+\begin{flushleft}
+{\small $\Rightarrow$}
+\end{flushleft}
+\end{minipage}
+\begin{minipage}{0.45 \textwidth}
+\includegraphics[]{Data_dimreduce.pdf}
+\end{minipage}
+
+\bp
+
+Our image, express as a sum of principal components
+
+\bp
+
+% -25089.66 -2488.648 -2247.378 713.3211
+
+\begin{minipage}{0.15 \textwidth}
+\includegraphics[]{STRS2013_S036T014_GOPR0347_TrapRemoved.jpg}
+\end{minipage}
+\begin{minipage}{0.10 \textwidth}
+\begin{flushleft}
+{\tiny $ = -25089*$}
+\end{flushleft}
+\end{minipage}
+\begin{minipage}{0.15 \textwidth}
+\includegraphics[]{prcompI0790_0001.jpg}
+\end{minipage}
+\begin{minipage}{0.07 \textwidth}
+\begin{flushleft}
+{\tiny $ -2488*$}
+\end{flushleft}
+\end{minipage}
+\begin{minipage}{0.15 \textwidth}
+\includegraphics[]{prcompI0790_0002.jpg}
+\end{minipage}
+\vspace{0.1cm}
+\begin{minipage}{0.07 \textwidth}
+\begin{flushleft}
+{\tiny $ +713*$}
+\end{flushleft}
+\end{minipage}
+\begin{minipage}{0.15 \textwidth}
+\includegraphics[]{prcompI0790_0003.jpg}
+\end{minipage}
+\begin{minipage}{0.07 \textwidth}
+\begin{flushleft}
+{\tiny $ +\dots$}
+\end{flushleft}
+\end{minipage}
+
+\end{frame}
+
+\begin{frame}
+
+\frametitle{Cluster similiar frames together}
+
+We then have a matrix with 790 rows (images) and 790 columns (principal components). We perform a clustering algorithm.
+
+\bp
+
+\includegraphics[height=0.4 \textwidth, width=0.4 \textwidth]{Video_cluster_hclust.jpeg}
+\includegraphics[height=0.4 \textwidth, width=0.4 \textwidth]{Video__hclust_dendrogram.jpeg}
+
+\bp
+
+\begin{minipage}{0.4 \textwidth}
+Example cluster group 1
+\end{minipage}
+\begin{minipage}{0.1 \textwidth}
+\includegraphics{STRS2013_S035T015_GOPR0280.jpg}
+\end{minipage}
+\begin{minipage}{0.1 \textwidth}
+\includegraphics{STRS2013_S036T014_GOPR0347_TrapRemoved.jpg}
+\end{minipage}
+\begin{minipage}{0.1 \textwidth}
+\includegraphics{STRS2013_S037T014_GOPR0629.jpg}
+\end{minipage}
+\begin{minipage}{0.1 \textwidth}
+\includegraphics{STRS2013_S037T014_GOPR0630.jpg}
+\end{minipage}
+\begin{minipage}{0.1 \textwidth}
+\includegraphics{STRS2013_S041T013_GOPR0626.jpg}
+\end{minipage}
+
+\begin{minipage}{0.4 \textwidth}
+Example cluster group 2
+\end{minipage}
+\begin{minipage}{0.1 \textwidth}
+\includegraphics{STRS2014_S087T013_GOPR0786.jpg}
+\end{minipage}
+\begin{minipage}{0.1 \textwidth}
+\includegraphics{STRS2014_S090T014_GOPR0341.jpg}
+\end{minipage}
+\begin{minipage}{0.1 \textwidth}
+\includegraphics{STRS2014_S104T013_GOPR0794.jpg}
+\end{minipage}
+\begin{minipage}{0.1 \textwidth}
+\includegraphics{STRS2014_S104T014_GOPR0794.jpg}
+\end{minipage}
+\begin{minipage}{0.1 \textwidth}
+\includegraphics{STRS2014_S106T013_GOPR0398.jpg}
+\end{minipage}
+
+\begin{minipage}{0.4 \textwidth}
+Example cluster group 3
+\end{minipage}
+\begin{minipage}{0.1 \textwidth}
+\includegraphics{STRS2014_S071T013_GOPR0777.jpg}
+\end{minipage}
+\begin{minipage}{0.1 \textwidth}
+\includegraphics{STRS2014_S081T014_GOPR0747.jpg}
+\end{minipage}
+\begin{minipage}{0.1 \textwidth}
+\includegraphics{STRS2014_S088T012_GOPR0390.jpg}
+\end{minipage}
+
+% Clear frames, cloudy frames
+% Hirechical clustering diagram
+% For STRS2013, STRS2014, 90% were cloudy, 10% were clear
+
+\end{frame}
+
+\begin{frame}
+
+\frametitle{Train Clear/Cloudy classifier}
+
+Trained: Artificial neural network, Random forest, Naive bays classifier.
+
+\bp
+
+Results:
+
+<<echo=FALSE,results=tex>>=
+require(xtable)
+load("per_correct_videoImageClarity.RData")
+per_correct_arnns = per_correct_resu[["per_correct_arnns"]]
+per_correct_rndfs = per_correct_resu[["per_correct_rndfs"]]
+per_correct_nbays = per_correct_resu[["per_correct_nbays"]]
+per_correct_modes = per_correct_resu[["per_correct_modes"]]
+ATR <- 
+  data.frame(Names = c("Artificial neural network", 
+                     "Random forest", 
+                     "Naive bayes classifer", 
+                     "Crude mode classifer"), 
+          Per_correct = c(mean(per_correct_arnns), 
+                          mean(per_correct_rndfs), 
+                          mean(per_correct_nbays), 
+                          mean(per_correct_modes)))
+ATR <- xtable(ATR)
+print(ATR, table.placement="!h")
+@
+
+\end{frame}
+
+\begin{frame}
+
+\frametitle{Clear frames}
+
+Restrict to clear frames, is there a way to detect anything interesting?
+
+\bp
+
+\begin{minipage}{0.4 \textwidth}
+\includegraphics{STRS2013_S035T015_GOPR0280.jpg}
+\end{minipage}
+\begin{minipage}{0.4 \textwidth}
+Flat, featureless ocean floor
+\end{minipage}
+
+\begin{minipage}{0.4 \textwidth}
+\includegraphics{STRS2013_S036T014_GOPR0347_TrapRemoved.jpg}
+\end{minipage}
+\begin{minipage}{0.4 \textwidth}
+Has fish, and some plant life
+\end{minipage}
+
+\bp
+
+Could we turn this into a classifier for Presence/Absence of biotic material?
+
+\end{frame}
+
+\begin{frame}
+
+\frametitle{Blob detection}
+
+Interested in finding differences in blobs of color
+
+\bp
+
+1). Red, Green, Blue (RGB) $\Rightarrow$ Hue, Saturation, Value (HSV).
+
+\begin{minipage}{0.45 \textwidth}
+\includegraphics{HSV_color_solid_cylinder_alpha_lowgamma.png}
+\end{minipage}
+\begin{minipage}{0.45 \textwidth}
+\begin{minipage}{0.30 \textwidth}
+\includegraphics{STRS2013_S036T014_GOPR0347_TrapRemoved07.jpg}
+\end{minipage}
+
+\begin{minipage}{0.30 \textwidth}
+\includegraphics{STRS2013_S036T014_GOPR0347_TrapRemoved08.jpg}
+\end{minipage}
+
+\begin{minipage}{0.30 \textwidth}
+\includegraphics{STRS2013_S036T014_GOPR0347_TrapRemoved09.jpg}
+\end{minipage}
+\end{minipage}
+
+\bp
+
+2). Python code detects these blobs, and calculates the areas.
+
+\includegraphics[height=0.20 \textwidth, width=0.27 \textwidth]{STRS2013_S036T014_GOPR0347_TrapRemoved.jpg}
+\includegraphics[height=0.20 \textwidth, width=0.27 \textwidth]{STRS2013_S036T014_GOPR0347_TrapRemoved01.jpg}
+\includegraphics[height=0.20 \textwidth, width=0.27 \textwidth]{STRS2013_S036T014_GOPR0347_TrapRemoved02.jpg}
+
+\end{frame}
+
+\begin{frame}
+
+\frametitle{I got 99 blobs and a fish is one}
+
+From the blobs we can calculate some area info:
+
+\bp
+
+\begin{minipage}{0.45 \textwidth}
+\includegraphics{STRS2013_S035T015_GOPR028002.jpg}
+\end{minipage}
+\begin{minipage}{0.45 \textwidth}
+\includegraphics{STRS2013_S036T014_GOPR0347_TrapRemoved02.jpg}
+\end{minipage}
+
+<<echo=FALSE, results=tex>>=
+load("data_areas.RData")
+require(stringr)
+areas <- areas[row.names(areas) %in% c("STRS2013_S035T015_GOPR0280", "STRS2013_S036T014_GOPR0347"), as.vector(na.omit(str_match(names(areas), "Areas.+")))]
+names(areas) <- c("Min.", "1st Qu.", "Median", "Mean", "3rd Qu.", "Max.", "# blobs", "sd of areas")
+row.names(areas) <- c("Absence", "Presence")
+areas <- t(areas)
+print(xtable(areas), size="\\tiny")
+@
+
+Images with some presence of biotic material in them are likely to have a particular signature in this space.
+
+\end{frame}
+
+\begin{frame}
+
+\frametitle{Train Presence/Absence classfier}
+
+Trained: Artificial neural network, Random forest, Naive bays classifier.
+
+\bp
+
+Results:
+
+<<echo=FALSE,results=tex>>=
+require(xtable)
+load("per_correct_videoBioticMaterial.RData")
+per_correct_arnns = per_correct_resu[["per_correct_arnns"]]
+per_correct_rndfs = per_correct_resu[["per_correct_rndfs"]]
+per_correct_nbays = per_correct_resu[["per_correct_nbays"]]
+per_correct_modes = per_correct_resu[["per_correct_modes"]]
+ATR <- 
+  data.frame(Names = c("Artificial neural network", 
+                     "Random forest", 
+                     "Naive bayes classifer", 
+                     "Crude mode classifer"), 
+          Per_correct = c(mean(per_correct_arnns), 
+                          mean(per_correct_rndfs), 
+                          mean(per_correct_nbays), 
+                          mean(per_correct_modes)))
+ATR <- xtable(ATR)
+print(ATR, table.placement="!h")
+@
+
+\end{frame}
+
+\begin{frame}
+
+Any questions?
+
+\end{frame}
+
+\end{document}
