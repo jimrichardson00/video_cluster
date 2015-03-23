@@ -105,51 +105,21 @@ Video_mod <- function(video_file, W, H, skip = 6) {
 	return(mean(apply(prx, MARGIN = 2, FUN = function(x) mean(sum(x^2)))))
 }
 
-CCIPCA_RepFrames <- function(RepFrames_new, n_components, rerun) {
+CCIPCA_RepFrames <- function(RepFrames_new, n_components, rerun, year) {
 
-	require(rPython)
-
-	# # turn RepFrames into matrix for python code
-	# RepFrames_new <- matrix(unlist(RepFrames_new[1:nrow(RepFrames_new), 1:ncol(RepFrames_new)]), nrow = nrow(RepFrames_new), byrow = FALSE)
+	# turn RepFrames into matrix for python code
+	RepFrames_new <- matrix(unlist(RepFrames_new[1:nrow(RepFrames_new), 1:ncol(RepFrames_new)]), nrow = nrow(RepFrames_new), byrow = FALSE)
 
 	setwd(master_dir)
-	if(file.exists(paste("ccipca_video", year, ".RData", sep = "")) == TRUE & rerun == 0) {
-
-		load(paste("ccipca_video", year, ".RData", sep = ""))
-
-		n_components <- n_components + nrow(RepFrames_new)
-		iteration <- ccipca[["iteration"]]
-		amnesic <- ccipca[["amnesic"]]
-		copy <- ccipca[["copy"]]
-		mean_ <- ccipca[["mean_"]]
-		components_ <- ccipca[["components_"]]
-
-		components_ <- components_[seq(1, n_components, 1), ]
-    
-    	rerun <- 0
-
-	} else {
-
-		iteration <- NA
-		amnesic <- NA
-		copy <- NA
-		mean_ <- NA
-		components_ <- NA
-
+	if(file.exists(paste("ccipca_video", year, ".RData", sep = "")) == FALSE | rerun == 1) {
 		rerun <- 1
-
 	}
 
+	require(rPython)
 	python.load("CCIPCA_RepFrames.py")
-	ccipca <- python.call("CCIPCA_RepFrames", RepFrames_new, n_components
-		, iteration
-		, amnesic
-		, copy
-		, mean_
-		, components_
-		, rerun )
+	python.call("CCIPCA_RepFrames", RepFrames_new, n_components, rerun, year, W, H )
 
-	return(ccipca)
+	# return(ccipca)
 
 }
 
