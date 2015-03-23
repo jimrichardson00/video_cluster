@@ -100,7 +100,7 @@ The clustering algorithm sorts our images into $\Sexpr{n_clusters}$ homogeneous 
 
 <<echo=FALSE,results=tex>>=
 setwd(master_dir)
-load("data_video2013.RData")
+load("data_video.RData")
 data[is.na(data) == TRUE | data == ""] <- "NA"
 require(plyr)
 ImageClarity_freq <- ddply(.data = data, .variables = .(ImageClarity), .fun = summarise, Freq = length(ImageClarity))
@@ -116,7 +116,7 @@ We trained a few different algorithms; an artificial neural network, a random fo
 <<echo=FALSE,results=tex>>=
 require(xtable)
 setwd(master_dir)
-load("per_correct_video2013ImageClarity.RData")
+load("per_correct_videoImageClarity.RData")
 per_correct_arnns = per_correct_resu[["per_correct_arnns"]]
 per_correct_rndfs = per_correct_resu[["per_correct_rndfs"]]
 per_correct_nbays = per_correct_resu[["per_correct_nbays"]]
@@ -189,7 +189,7 @@ We examined the $\Sexpr{sum(data$ImageClarity == "Clear")}$ clear images and cla
 <<echo=FALSE,results=tex>>=
 require(xtable)
 setwd(master_dir)
-load("data_video2013.RData")
+load("data_video.RData")
 data[is.na(data) == TRUE | data == ""] <- "NA"
 data <- data[data$ImageClarity == "Clear", ]
 require(plyr)
@@ -205,7 +205,7 @@ We trained a few different algorithms; an artificial neural network, a random fo
 <<echo=FALSE,results=tex>>=
 require(xtable)
 setwd(master_dir)
-load("per_correct_video2013IfBiotic.RData")
+load("per_correct_videoIfBiotic.RData")
 per_correct_arnns = per_correct_resu[["per_correct_arnns"]]
 per_correct_rndfs = per_correct_resu[["per_correct_rndfs"]]
 per_correct_nbays = per_correct_resu[["per_correct_nbays"]]
