@@ -114,7 +114,6 @@ if(length(video_files_new) > 0) {
     " new ", length(video_files_new), 
     " cur ", length(video_files_cur), sep = ""))
 
-
 	# - Reads in .txt files to R and saves all info (including data matrix, mean, components, and projection of data to components) to .RData file
 
   # updated values
