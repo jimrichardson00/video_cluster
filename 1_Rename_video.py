@@ -9,6 +9,12 @@ import fnmatch
 
 def Rename_video( from_idx, from_dir, to_dir ):
 
+  from_idx = str(from_idx)
+  from_dir = str(from_dir)
+  to_dir = str(to_dir)
+
+  print from_idx
+
   #sets empty lists to be used later for the files and folders in directory
   folders = []
   years = []
@@ -21,17 +27,12 @@ def Rename_video( from_idx, from_dir, to_dir ):
     
     #sets root and extension of each folder
     folderRoot, fileExtension = os.path.splitext(folder_path)
+
+    # if file extension is empty (i.e. a folder), adds the file name to list of file names
     if fileExtension == '':
-      #if file extension is empty (i.e. a folder), adds the file name to list of file names
       folders.append(folder)
 
-  # f = open("/home/jim/Dropbox/Records/Filenames.txt", "r")
-  # Filenames_txt = f.read().split('\n')
-  # f.close()
-
   for folder in folders:
-
-    print folder
 
     # folder path
     folder_path = os.path.abspath(os.path.join(from_dir,folder))
@@ -41,55 +42,77 @@ def Rename_video( from_idx, from_dir, to_dir ):
 
     # extract set and trap
     # match_ST = re.search(r'Set(\d+)Trap(\d+)', folder)
-    match_ST = re.search(r'[a-zA-Z]+(\d+)[a-zA-Z]+(\d+)', folder)
+    match_set = re.search(r'.*set(\d+).*', folder.lower())
+    match_trap = re.search(r'.*trap(\d+).*', folder.lower())
+    match_camera = re.search(r'.*camera(\d+).*', folder.lower())
 
-    Set = match_ST.group(1)
-    Trap = match_ST.group(2)
+    if match_set or match_trap or match_camera:
 
-    Set = str(Set).zfill(3)
-    Trap = str(Trap).zfill(3)
+      print "From folder: " + folder
 
-    print Set
-    print Trap
-    print folder_path
+      if match_set:
+        Set = match_set.group(1)
+      else:
+        Set = 0
 
-    # ----------------------------------------------------------------------
-    # first video in each set/trap
+      if match_trap:
+        Trap = match_trap.group(1)
+      else:
+        Trap = 0
 
-    matches = []
+      if match_camera:
+        Camera = match_camera.group(1)
+      else:
+        Camera = 0
 
-    for root, dirnames, filenames in os.walk(folder_path):
+      Set = str(Set).zfill(3)
+      Trap = str(Trap).zfill(3)
+      Camera = str(Camera).zfill(3)
 
-      for filename in fnmatch.filter(filenames, '*.MP4'):
+      # ----------------------------------------------------------------------
+      # first video in each set/trap
 
-        # extract filename path
-        filename_path = os.path.abspath(os.path.join(root, filename))
+      matches = []
 
-        # extract filename extension
-        fileRoot, fileExtension = os.path.splitext(filename_path)
+      for root, dirnames, filenames in os.walk(folder_path):
 
-        print filename
-        print fileRoot
-        print fileExtension
-        print 'from dir' + filename_path
+        for filename in fnmatch.filter(filenames, '*.MP4'):
 
-        match_BF = re.search(r'(.+)\.MP4', filename)
+          # extract filename path
+          filename_path = os.path.abspath(os.path.join(root, filename))
 
-        base_filename = match_BF.group(1)
+          # extract filename extension
+          fileRoot, fileExtension = os.path.splitext(filename_path)
 
-        # copies the file
-        shutil.move(filename_path, to_dir)
+          match_BF = re.search(r'(.+)\.MP4', filename)
 
-        # new filename
-        NewFilename = from_idx + '_' + 'S' + str(Set) + 'T' + str(Trap) + '_' + str(base_filename) + ".MP4"
-        
-        print 'new filename ' + NewFilename
+          base_filename = match_BF.group(1)
 
-        # new filename path
-        NewFilename_path = os.path.abspath(os.path.join(to_dir, NewFilename))
+          # new filename
+          print "Set: " + str(Set)
+          print "Trap: " + str(Trap)
+          print "Camera: " + str(Camera)
+          print "from_idx: " + str(from_idx)
 
-        # full path of copied file
-        filename_path = os.path.abspath(os.path.join(to_dir, filename))
+          NewFilename = str(from_idx) + '_' + 'S' + str(Set) + 'T' + str(Trap) + 'C' + str(Camera) + '_' + str(base_filename) + ".MP4"
+          NewFilename_path = os.path.abspath(os.path.join(to_dir, NewFilename))
 
-        # renames the file
-        os.rename(filename_path, NewFilename_path)
+          print "To folder: " + to_dir
+          print "New file name: " + NewFilename
+
+          print os.path.isfile(NewFilename_path)
+
+          if os.path.isfile(NewFilename_path) == False:
+
+            # copies the file
+            # shutil.move(filename_path, to_dir)
+            shutil.copy(filename_path, to_dir)
+
+            # full path of copied file
+            filename_path = os.path.abspath(os.path.join(to_dir, filename))
+
+            # renames the file
+            os.rename(filename_path, NewFilename_path)
+
+          print "Copied and renamed."
+          print ""
