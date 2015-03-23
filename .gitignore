@@ -3,6 +3,7 @@
 *.txt
 *.csv
 *.jpg
+*.jpeg
 *.png
 *.mdb
 *.RData
