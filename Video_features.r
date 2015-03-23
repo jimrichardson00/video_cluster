@@ -1,6 +1,15 @@
 setwd(master_dir)
 load(paste("ccipca_video", year, ".RData", sep = ""))
 
+to_dir = paste(clust_dir, "/cur/Clear/Features", sep = "")
+frame_dir = frame_dir
+require(stringr)
+if(length(list.files(paste(clust_dir, "/cur/Clear", sep = ""), pattern = "\\.jpg")) > 0) {
+	video_files = str_match(list.files(paste(clust_dir, "/cur/Clear", sep = ""), pattern = "\\.jpg"), "(.+)\\.jpg")[, 2]
+} else {
+	video_files <- vector()
+}
+
 # deletes rep_frames folder, then creates it (aviods overlap)
 system(paste('rm -r ', to_dir, sep = ""))
 system(paste('mkdir ', to_dir, sep = ""))
@@ -10,7 +19,7 @@ video_file
 
 Detect_features <- function(video_file, frame_dir, to_dir, W, H, skip) {
 
-	print(video_file)
+	print(paste("Detecting features: ", video_file, sep = ""))
 
 	require(rPython)
 	setwd(master_dir)
@@ -30,43 +39,45 @@ Detect_features <- function(video_file, frame_dir, to_dir, W, H, skip) {
   os.chdir(frame_dir)
   frame = cv2.imread(video_file + '.jpg')
   frame = Remove_trap(frame)
-  areas = Detect_features( frame, to_dir, video_file + '.jpg' )
+  data_areas = Detect_features( frame, to_dir, video_file + '.jpg' )
 ")
   # frame = Resize_frame(frame, W, H)
 
-	areas = python.get("areas")
+	data_areas = python.get("data_areas")
 
-	if(is.numeric(areas) == TRUE) {
-		areas <- c(summary(areas), length(areas[areas != 0]), ifelse(is.na(sd(areas)), 0, sd(areas)))
+	if(is.numeric(data_areas) == TRUE) {
+		data_areas <- c(summary(data_areas), length(data_areas[data_areas != 0]), ifelse(is.na(sd(data_areas)), 0, sd(data_areas)))
 	} else {
-		areas <- rep(0, 8)
+		data_areas <- rep(0, 8)
 	}
-	names(areas) <- paste("Areas", seq(1, length(areas), 1), sep = "")
-	print(areas)
+	names(data_areas) <- paste("Areas", seq(1, length(data_areas), 1), sep = "")
+	print(data_areas)
 
-	return(areas)
+	return(data_areas)
 
 }
 
-video_file <- "STRS2013_S022T014_GOPR0342"
-video_file <- video_files[1]
-Detect_features(video_file, frame_dir, to_dir, W, H, skip)
-video_files
+if(mac == TRUE) {
+	data_areas = lapply(video_files, FUN = function(video_file) Detect_features(video_file
+		, frame_dir, to_dir, W, H, skip))
+} else {
+	data_areas = mclapply(video_files, FUN = function(video_file) Detect_features(video_file
+		, frame_dir, to_dir, W, H, skip)
+		, mc.cores = n_cores
+		, mc.silent = FALSE
+		, mc.preschedule = TRUE
+		)
 
-areas = mclapply(video_files, FUN = function(video_file) Detect_features(video_file, frame_dir, to_dir, W, H, skip)
-	, mc.cores = n_cores
-	, mc.silent = FALSE
-	, mc.preschedule = TRUE
-	)
+}
 
-areas <- matrix(unlist(areas), nrow = length(areas), byrow = TRUE)
-areas <- as.data.frame(areas)
-names(areas) <- paste("Areas", seq(1, ncol(areas), 1), sep = "")
-row.names(areas) <- video_files
-areas$Filenames <- video_files
+data_areas <- matrix(unlist(data_areas), nrow = length(data_areas), byrow = TRUE)
+data_areas <- as.data.frame(data_areas)
+names(data_areas) <- paste("Areas", seq(1, ncol(data_areas), 1), sep = "")
+row.names(data_areas) <- video_files
+data_areas$Filenames <- video_files
 
 setwd(master_dir)
-save(areas, file = paste("data_areas", year, ".RData", sep = ""))
+save(data_areas, file = paste("data_areas", year, ".RData", sep = ""))
 
 # ----------------------------------------------------
 
@@ -83,10 +94,6 @@ save(areas, file = paste("data_areas", year, ".RData", sep = ""))
 # setwd(master_dir)
 # python.load("Features.py")
 # python.call("Features", video_file, W, H, video_dir, skip, to_dir )
-
-
-
-
 
 
 
