@@ -1,10 +1,5 @@
 #!/usr/bin/env python
 
-"""eigenface
-finds the first k eigenfaces using pca and inc pca
-the results are displayed side by side for visual
-comparison
-"""
 import cv2
 from sklearn.decomposition import PCA
 from pyIPCA import CCIPCA
