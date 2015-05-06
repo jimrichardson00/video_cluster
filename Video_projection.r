@@ -1,10 +1,7 @@
 # ----------------------------------------
 # Output projections
 
-setwd(master_dir)
-load(paste("ccipca_video", year, ".RData", sep = ""))
-
-video_files_cur <- ccipca[["video_files_cur"]]
+video_files_cur <- as.vector(read.table(paste("video_files_cur", year, ".txt", sep = ""))[, 1])
 iteration <- length(video_files_cur)
 
 proje_dim_f = formatC(proje_dim, flag = "0", width = 4)
@@ -12,10 +9,19 @@ system(paste("rm -r ", proje_dir, "/", proje_dim_f, sep = ""))
 system(paste("mkdir ", proje_dir, "/", proje_dim_f, sep = ""))
 dest_dir = paste(proje_dir, "/", proje_dim_f, sep = "")
 
-prx <- ccipca[["prx"]]
-components_ <- ccipca[["components_"]]
-mean_ <- ccipca[["mean_"]]
-video_files_frames_cur <- ccipca[["video_files_frames_cur"]]
+prx <- read.table(paste("prx", year, ".txt", sep = ""))
+
+require(data.table)
+components_ <- fread(input = paste("components_", year, ".txt", sep = ""))
+# components_ <- read.table("components_.txt")
+components_ <- t(components_)
+components_ <- Standardize_components(components_)
+if(nrow(components_) < n_components) {
+  n_zeroes <- n_components - nrow(components_)
+  zeroes <- matrix(0, nrow = n_zeroes, ncol = 3*H*W)
+  components_ <- rbind(components_, zeroes)
+}
+mean_ <- read.table(paste("mean_", year, ".txt", sep = ""))
 
 prx <- prx[, 1:proje_dim]
 components_ <- components_[1:proje_dim, ]
