@@ -6,14 +6,14 @@ import math
 import os
 import cPickle as pickle
 
-def Remove_trap( frame ):
+def Remove_trap( frame, x1, x2, y1, y2 ):
 
   height, width, depth = frame.shape
 
-  x1 = int(round(Decimal(0.26041666666)*Decimal(width)))
-  x2 = int(round(Decimal(0.73958333334)*Decimal(width)))
-  y1 = 0
-  y2 = int(round(Decimal(0.65555555555)*Decimal(height)))
+  x1 = int(round(Decimal(x1)*Decimal(width)))
+  x2 = int(round(Decimal(x2)*Decimal(width)))
+  y1 = int(round(Decimal(1.0 - y2)*Decimal(height)))
+  y2 = int(round(Decimal(1.0 - y1)*Decimal(height)))
 
   frame = frame[y1:y2, x1:x2]
 
