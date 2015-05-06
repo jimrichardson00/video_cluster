@@ -19,30 +19,10 @@
 # --------------------------------------------
 # - Loads principal component analysis (ccipca) if it exists, otherwise sets initial values. 
 setwd(master_dir)
-if(file.exists(paste("ccipca_video", year, ".RData", sep = "")) == TRUE & rerun == 0) {
-
-  setwd(master_dir)
-  load(paste("ccipca_video", year, ".RData", sep = ""))
-
-  n_components <- as.integer(ccipca[["n_components"]])
-  iteration <- as.integer(ccipca[["iteration"]]) 
-  amnesic <- as.integer(ccipca[["amnesic"]]) 
-  copy <- as.integer(ccipca[["copy"]]) 
-  mean_ <- ccipca[["mean_"]] 
-  components_ <- ccipca[["components_"]] 
-  RepFrames_cur <- ccipca[["RepFrames_cur"]] 
-  video_files_cur <- ccipca[["video_files_cur"]]
-
+if(file.exists(paste("video_files_cur", year, ".txt", sep = "")) == TRUE & rerun == 0) {
+  video_files_cur <- as.vector(read.table(paste("video_files_cur", year, ".txt", sep = ""))[, 1])
 } else {
-  
-  RepFrames_cur <- data.frame()
   video_files_cur <- vector()
-  SetTraps_cur <- vector()
-  video_files_frames_cur <- vector()
-  n_components <- 0
-  components_ <- data.frame()
-  iteration <- 0
-
 }
 
 # --------------------------------------------
@@ -114,54 +94,6 @@ if(length(video_files_new) > 0) {
     " new ", length(video_files_new), 
     " cur ", length(video_files_cur), sep = ""))
 
-	# - Reads in .txt files to R and saves all info (including data matrix, mean, components, and projection of data to components) to .RData file
-
-  # updated values
-  print("n_components")
-  n_components <- read.table("n_components.txt")  
-  print("iteration")
-  iteration <- read.table("iteration.txt")  
-  print("amnesic")
-  amnesic <- read.table("amnesic.txt") 
-  print("copy")
-  copy <- read.table("copy.txt")   
-  require(data.table)
-  print("mean_")
-  require(data.table)
-  mean_ <- fread(input = "mean_.txt")
-  mean_ <- as.vector(mean_$V1)
-  print("components_")
-  components_ <- fread(input = "components_.txt")
-  # components_ <- read.table("components_.txt")
-  components_ <- t(components_)
-  components_ <- Standardize_components(components_)
-  if(nrow(components_) < n_components) {
-    n_zeroes <- n_components - nrow(components_)
-    zeroes <- matrix(0, nrow = n_zeroes, ncol = 3*H*W)
-    components_ <- rbind(components_, zeroes)
-  }
-  RepFrames_cur <- rbind(RepFrames_cur, RepFrames_new)
-  video_files_cur <- c(video_files_cur, video_files_new)
-  prx <- (as.matrix(RepFrames_cur) - matrix(rep(mean_, length(video_files_cur)), ncol = length(mean_), byrow = TRUE)) %*% t(components_)
-
-  # update ccipca list with new values
-  ccipca <- list()
-  ccipca[["n_components"]] <- as.integer(n_components)  
-  ccipca[["iteration"]] <- as.integer(iteration) 
-  ccipca[["amnesic"]] <- as.integer(amnesic)
-  ccipca[["copy"]] <- as.integer(copy)  
-  ccipca[["mean_"]] <- mean_  
-  ccipca[["components_"]] <- components_  
-  ccipca[["RepFrames_cur"]] <- RepFrames_cur  
-  ccipca[["video_files_cur"]] <- video_files_cur  
-  ccipca[["prx"]] <- prx
-
-  print(paste("New mean: ", mean(mean_), sep = ))
-  print(paste("New components_: ", paste(components_[1, 1:2], collapse = ", "), sep = ))
-
-  # write ccip_videoca list to RData
-  setwd(master_dir)
-  save(ccipca, file = paste('ccipca_video', year, '.RData', sep = ''))
-  print(paste("Saved: ", paste('ccipca_video', year, '.RData', sep = ''), sep = ""))
+  write(c(video_files_cur, video_files_new), file = paste("video_files_cur", year, ".txt", sep = ""))
 
 }
