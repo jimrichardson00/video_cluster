@@ -34,12 +34,11 @@ if(length(frames_new) >= 2) {
 
   # loads ccipca data, subsets reduced dimension data set prx to frames_new
   setwd(master_dir)
-  load(paste("ccipca_video", year, ".RData", sep = ""))
-  prx <- ccipca[["prx"]]
+  prx <- read.table(paste("prx", year, ".txt", sep = ""))
   prx <- as.data.frame(prx)
-  video_files_cur <- ccipca[["video_files_cur"]]
+  video_files_cur <- as.vector(read.table(paste("video_files_cur", year, ".txt", sep = ""))[, 1])
   row.names(prx) <- video_files_cur
-  prx <- prx[ccipca[["video_files_cur"]] %in% frames_new, ]
+  prx <- prx[video_files_cur %in% frames_new, ]
 
   # ------------------------------------------------
 
