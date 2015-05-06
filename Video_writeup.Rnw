@@ -23,7 +23,8 @@ W = 177
 H = 230
 x1 = 0.26041666666
 x2 = 0.73958333334
-y2 = 0.65555555555
+y1 = 0 # 0.344444444444444
+y2 = 0.65555555555 # 1.0
 skip = 6
 cutoff = 130
 n_shades = 20
@@ -46,6 +47,10 @@ Hgp = 1080
 Wgp = 1920
 frame_rate = 30
 n_clusters = 40
+
+setwd("/home/jim/Dropbox/REM/Tasks/video_cluster")
+require(knitr)
+Sweave2knitr('Video_writeup.Rnw')
 @
 
 % video data
@@ -100,10 +105,10 @@ The clustering algorithm sorts our images into $\Sexpr{n_clusters}$ homogeneous 
 
 <<echo=FALSE,results=tex>>=
 setwd(master_dir)
-load("data_video.RData")
-data[is.na(data) == TRUE | data == ""] <- "NA"
+load("data_train.RData")
+data_train[is.na(data_train) == TRUE | data_train == ""] <- "NA"
 require(plyr)
-ImageClarity_freq <- ddply(.data = data, .variables = .(ImageClarity), .fun = summarise, Freq = length(ImageClarity))
+ImageClarity_freq <- ddply(.data = data_train, .variables = .(ImageClarity), .fun = summarise, Freq = length(ImageClarity))
 require(xtable)
 ImageClarity_freq <- xtable(ImageClarity_freq)
 print(ImageClarity_freq, table.placement="!h")
@@ -189,11 +194,11 @@ We examined the $\Sexpr{sum(data$ImageClarity == "Clear")}$ clear images and cla
 <<echo=FALSE,results=tex>>=
 require(xtable)
 setwd(master_dir)
-load("data_video.RData")
-data[is.na(data) == TRUE | data == ""] <- "NA"
-data <- data[data$ImageClarity == "Clear", ]
+load("data_train.RData")
+data_train[is.na(data_train) == TRUE | data_train == ""] <- "NA"
+data_train <- data_train[data_train$ImageClarity == "Clear", ]
 require(plyr)
-ImageClarity_freq <- ddply(.data = data, .variables = .(IfBiotic), .fun = summarise, Freq = length(ImageClarity))
+ImageClarity_freq <- ddply(.data = data_train, .variables = .(BioticMaterial), .fun = summarise, Freq = length(ImageClarity))
 ImageClarity_freq <- xtable(ImageClarity_freq)
 print(ImageClarity_freq, table.placement="!h")
 @
