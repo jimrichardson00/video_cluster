@@ -1,0 +1,435 @@
+\documentclass{article}
+\usepackage[latin1]{inputenc}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning}
+\usepackage{caption}
+\usepackage{fullpage}
+\usepackage{amssymb}
+\usepackage{amsmath}
+% \usepackage[top=1cm, bottom=1cm, left=1cm, right=1cm]{geometry}
+
+\newcommand*{\h}{\hspace{5pt}}% for indentation
+\newcommand*{\hh}{\h\h}% double indentation
+
+\begin{document}
+
+<<include=FALSE>>=
+library(knitr)
+opts_chunk$set(
+concordance=TRUE
+)
+@
+
+
+<<echo=FALSE, message=FALSE>>=
+
+W = 177
+H = 230
+x1 = 0.26041666666
+x2 = 0.73958333334
+y1 = 0 # 0.344444444444444
+y2 = 0.65555555555 # 1.0
+skip = 6
+cutoff = 130
+n_shades = 20
+t_min = 2*30
+t_max = 4*30
+dilation = 4
+year = "2013"
+master_dir = "/home/jim/Dropbox/REM/Tasks/video_cluster"
+# master_dir = "/Users/jimrichardson/Dropbox/REM/Tasks/video_cluster"
+frame_dir = paste(master_dir, "/frame", year, sep = "")
+video_dir = paste(master_dir, "/video", year, sep = "")
+audio_dir = paste(master_dir, "/audio", year, sep = "")
+
+n_SetTraps = 111
+n_videos = 444
+year = 2013
+n_seconds = 16
+n_traps = 30
+Hgp = 1080
+Wgp = 1920
+frame_rate = 30
+n_clusters = 40
+
+@
+
+% video data
+
+\section{Video data}
+
+The stratified random survey video data for $\Sexpr{year}$ consists of $\Sexpr{n_videos}$ videos in total, each about $\Sexpr{n_seconds}$ long. Each video is from a particular set and trap. A set is a ground-line with a number of traps, typically about $\Sexpr{n_traps}$, and the traps are numbered in increasing order from one end of the ground-line to the other. Typically a single camera is put on the middle trap, trap $14$ or so, but sometimes a given set has $3$ or more cameras. There are $\Sexpr{n_SetTraps}$ unique set and trap combinations, each set and trap has one or more videos.
+
+The video was filmed with commercially available GoPros and the result was some pretty high quality MP4 files. The video has a frame rate of $\Sexpr{frame_rate}$ frames per second and a resolution of $H = \Sexpr{Hgp}$ by $W = \Sexpr{Wgp}$ pixels. Each pixel has three numeric values indicating the relative levels of red, green and blue in the pixel. Each of these values range from $0-255$, $0$ is the highest intensity, $255$ is the lowest.
+
+The data for one frame then would be a vector with $\Sexpr{Hgp} \times \Sexpr{Wgp} \times 3 = \Sexpr{Wgp*Hgp*3}$ dimensions. In a $\Sexpr{n_seconds}$ second video with a frame rate of $\Sexpr{frame_rate}$ frames per second there are $\Sexpr{n_seconds} \times \Sexpr{frame_rate} = \Sexpr{frame_rate*n_seconds}$ such frames. Frames of a given video are likely to be quite similar, and we only need one frame to identify the presence/absence of non-moving biotic material. It makes sense then to extract a single frame that accurately represents the content of the video.
+
+The way we did this was to take an average of all frames in the video. The resulting image should show non-moving objects quite clearly since they do not change from frame to frame, but obscure mud particles that move across the field of vision.
+
+The edges of the trap can be seen in each image, typically showing up at the bottom and the left and right sides leaving a clear square in the top and middle of the image. Unfortunately the position of the edges of the trap varies from image to image depending on where the camera is placed on the trap. In subsequent data analysis we will group together these images based on similarity, and if we do not remove the trap it will cause problems in these groupings. For example, it is likely to group images together based on similarities in the position of the trap rather than the content of the images.
+
+To remove the trap from each image we took a square that for the majority of images shows a clear image with no trap. To better describe this, let us set the pixel bottom left hand corner as $(0, 0)$ and a pixel that is located $x$ to to the right and $y$ units above $(0, 0)$ as $(x, y)$. Then an image with dimensions $H = \Sexpr{Hgp}$, $W = \Sexpr{Wgp}$ can be described as subset of $\mathbb{R}^2$ as $[0, \Sexpr{Wgp}] \times [0, \Sexpr{Hgp}] \subseteq \mathbb{R}^2$. The square we took then is described as $[\Sexpr{round(x1, 2)} \times \Sexpr{Wgp}, \Sexpr{round(x1, 2)} \times \Sexpr{Wgp}] \times [\Sexpr{round((1-y2), 2)} \times \Sexpr{Hgp}, \Sexpr{Hgp}] = [\Sexpr{round(x1*Wgp, 0)}, \Sexpr{round(x2*Wgp, 0)}] \times [\Sexpr{Hgp}, \Sexpr{round((1-y2)*Hgp, 0)}]$.
+
+After removing the trap, the resulting image has $(\Sexpr{round(x2*Wgp, 0)} - \Sexpr{round(x1*Wgp, 0)}) \times (\Sexpr{Hgp} - \Sexpr{round(Hgp*(1-y2), 0)}) = \Sexpr{round(x2*Wgp, 0) - round(x1*Wgp, 0)} \times \Sexpr{Hgp - round(Hgp*(1-y2), 0)} = \Sexpr{(round(x2*Hgp, 0) - round(x1*Hgp, 0))*(Hgp - round(Hgp*(1-y2), 0))}$ pixels. With red, green, blue values for each pixel, this is a total of $\Sexpr{3} \times \Sexpr{(round(x2*Hgp, 0) - round(x1*Hgp, 0))*(Hgp - round(Hgp*(1-y2), 0))} = \Sexpr{3*(round(x2*Hgp, 0) - round(x1*Hgp, 0))*(Hgp - round(Hgp*(1-y2), 0))}$ data points for a single frame, which is computationally prohibative. Therefore we resized each image to $H = \Sexpr{H}, W = \Sexpr{W}$ to reduce the number of data points to $\Sexpr{3} \times \Sexpr{H} \times \Sexpr{W} = \Sexpr{3*H*W}$.
+
+So with $\Sexpr{n_videos}$ videos our dataset is a matrix with $\Sexpr{n_videos}$ and $\Sexpr{3*H*W}$ columns. This is still too much data to run a classification algorithm on, so we must find a way to reduce the dimension of the space from $\Sexpr{3*H*W}$ to something more manageable. We will use principal component analysis to do this.
+
+% extract representative frame from each video
+
+\section{Principal component analysis}
+
+The data set containing information for all $\Sexpr{n_videos}$ images is a matrix with $\Sexpr{n_videos}$ rows and $\Sexpr{H*W*3}$ columns. This is still computationally prohibitive to run a classification algorithm on, so we must reduce the dimension from $\Sexpr{H*W*3}$ to something more manageable. With only $\Sexpr{n_videos}$ images we actually only need $\Sexpr{n_videos}$ dimensions to completely describe our data. Furthermore our classification algorithms can handle length $\Sexpr{n_videos}$ pretty easily, so it there is no need to reduce it to something lower than $\Sexpr{n_videos}$. So a dimension reduction to $\Sexpr{n_videos}$ dimensions seems like a good place to start.
+
+We reduce the dimension of our space using a mathematical technique known as principal component analysis. Principal component analysis linearly transforms the data onto a new set of basis vectors $PC1, PC2, \dots, PC\Sexpr{n_videos}$, known as principal components. Each $PCi$ is a linear combination of our existing $\Sexpr{H*W*3}$ vectors, and each image can be written as a linear combination of the principal components $PC1, PC2, \dots, PC\Sexpr{n_videos}$. Furthermore the principal components are ordered so that $PC1$ is the axis of greatest variation in the data, $PC2$ is the axis of second greatest variation and so on.
+
+Our data can now be stored in a matrix with $\Sexpr{n_videos}$ images as rows and $\Sexpr{n_videos}$ principal components as columns. Since the PCA transformation preserves distances, two images that are very similar visually are also quite close as points within this $\Sexpr{n_videos}$ dimension space. This suggests that a good idea for an initial analysis would be to cluster together images that are close together as points in this space. We do this in the next section.
+
+% create video data set
+
+\section{Apply clustering to transformed data set}
+
+If we have two images represented as points in $\Sexpr{H*W*3}$ dimensional pixel space and these points are very close together in the Euclidean sense - this means that the red, green, blue values for each pixel are pretty similar for a good proportion of the pixels. Put another way, it means the images are quite similar. The linear transformation given by the principal component analysis is actually a rotation, so distances are preserved. Thus if two frames close in the space $PC1, \dots, PC\Sexpr{n_videos}$, this also means the images are quite similar. 
+
+As an initial, exploratory step, we apply a clustering algorithm to our $\Sexpr{n_videos}$ points to sort them into $\Sexpr{n_clusters}$ groups. The clustering is done on the basis of the distance between each point, so the each group consists of points that are quite close together. In our space, this is equivalent to saying that each group consists of images that look quite similar. Indeed, upon examining the groups we could clearly identify a ``mostly mud'' group, a ``pretty clear'' group, a ``has visible ground-line'' group and so on.
+
+% apply classification algorithm to pca data set
+
+\section{Clear/Cloudy classification}
+
+<<echo=FALSE, message=FALSE, results='asis'>>=
+setwd(master_dir)
+load("per_correct_videoImageClarity.RData")
+N <- length(per_correct_resu[[1]])
+@
+
+The clustering algorithm sorts our images into $\Sexpr{n_clusters}$ homogeneous groups. Visually inspecting these groups allows us to identify groups of images; such as a ``mostly mud'' group, a ``pretty clear'' clear, a ``has visible ground-line'' group and so on. This a good first step, but ideally we would like to build an algorithm that will automatically do this for us. This would allow us to select only on the clear images for the presence/absence of biotic material classification. With this in mind we classfied the images into $2$ groups - ``Clear'' and ``Cloudy''. The following table shows these groups and the frequency at which they occur in the data:
+
+<<echo=FALSE,results='asis', message=FALSE>>=
+setwd(master_dir)
+load("data_train.RData")
+data_train[is.na(data_train) == TRUE | data_train == ""] <- "NA"
+require(plyr)
+ImageClarity_freq <- ddply(.data = data_train, .variables = .(ImageClarity), .fun = summarise, Freq = length(ImageClarity))
+require(xtable)
+ImageClarity_freq <- xtable(ImageClarity_freq)
+print(ImageClarity_freq, table.placement="!h")
+@
+
+The idea then is to combine this classification with the principal components from each representative frame and see if we can train a machine learning algorithm to automatically do the classification. The data was randomly split into two groups: a training set consisting of $\frac{2}{3}$ of the data, and a test set consisting of the remaining $\frac{1}{3}$ of the data. The algorithm is trained on the training set then tested on the test set. This was done $\Sexpr{N}$ times and the algorithm was evaluated on how many audio files it correctly classified in each test set.
+
+We trained a few different algorithms; an artificial neural network, a random forest, a naive Bayes classifier and a crude algorithm that simply looks for the class that occurred with the highest frequency in the training set and classifies everything as this (in this case; Cloudy). The results were as follows:
+
+<<echo=FALSE,results='asis'>>=
+require(xtable)
+setwd(master_dir)
+load("per_correct_videoImageClarity.RData")
+per_correct_arnns = per_correct_resu[["per_correct_arnns"]]
+per_correct_rndfs = per_correct_resu[["per_correct_rndfs"]]
+per_correct_nbays = per_correct_resu[["per_correct_nbays"]]
+per_correct_modes = per_correct_resu[["per_correct_modes"]]
+ATR <- 
+  data.frame(Names = c("Artifical neural network", 
+                     "Random forest", 
+                     "Naive bayes classifer", 
+                     "Crude mode classifer"), 
+          Per_correct = c(mean(per_correct_arnns), 
+                          mean(per_correct_rndfs), 
+                          mean(per_correct_nbays), 
+                          mean(per_correct_modes)))
+ATR <- xtable(ATR)
+print(ATR, table.placement="!h")
+@
+
+The model that performed the best was the \Sexpr{ATR[which.max(ATR[, 2]), 1]} with an accuracy of $\Sexpr{round(as.numeric(ATR[which.max(ATR[, 2]), 2])*100)}$\%. The learning algorithms do pretty well on with this classification, although the classification is based on the clustering, so it would be surprise if they didn't do well. 
+
+\section{Feature detection}
+
+After restricting to clear images we were then interested if we could extract information about the presence/absence of biotic material within the image. To detect a feature like a coral or sponge, it is a good idea to start with looking at blobs of pixels that are a different colour to the surrounding pixels. Differences in saturation could also be a good indicator, however this could also be a source of noise since the foreground of an image is typically of higher saturation than the background. In this case the entire foreground would show up as a feature. For now we decided to remove differences in saturation and concentrate only on differences in hue.
+
+We set out the step by step process to extract features from an image.
+
+\begin{enumerate}
+
+\item Convert to hue values
+
+The first step then is to convert our image from red, green, blue (RGB) data to hue, saturation, value (HSV) data. In the python code the hue value is a number between $0-180$, multiplying it by $2$ gives a value between $0-360$ which matches up with a colour in a classic colour wheel. The colour wheel splits in the middle of the red range, so the values $1$ and $359$ represent pretty similar shades of red. Most of the time the background will be blue, and the feature we want to detect will be red so it makes sense to move the split so that it is between red and blue. After examining the colour wheel, we decided to move the split to $\Sexpr{2*cutoff}$.
+
+Rotating the colour wheel was given by the map:
+
+\begin{equation}
+x \mapsto 
+\begin{cases}
+x + (360 - \Sexpr{2*cutoff})  & \mbox{if } x <= \Sexpr{2*cutoff} \\ 
+360 - x                       & \mbox{if } x >  \Sexpr{2*cutoff}
+\end{cases}
+\end{equation}
+
+\item Convert hue values to black and white image
+
+For each pixel we then have a value in the range $0-360$. As an example, the value $1$ will represent a blue hue, while the value $359$ will represent a red hue. We then scale this back to a value in the range $0-255$ and display as a black and white image, $0$ as white (blue) and $255$ (red). This will allow us to pick out blobs of red, since they will show up as black blobs in this image, but should also identifying blobs of other colours since at the border where the colour changes there will be a differences in shades of grey in our black and white image. Edge detection seems like a good way to move forward then.
+
+\item Reduce image complexity
+
+We want to blur the image slightly before doing edge detection, otherwise edges will be detected everywhere. Although the OpenCV function Canny does this as a preprocessing step already, we found that running a function to reduce the shades of gray to about $\Sexpr{n_shades}$ worked quite well. This reduction works by taking the gray shade value for all of the pixels and clustering them into $\Sexpr{n_shades}$ groups using $k$-means clustering. Then a given pixel is assigned the shade value of the centroid for the group that it falls into. Thus the image is reduced to $\Sexpr{n_shades}$ shades of gray. This helps pick out large scale changes in colour, rather than fine changes due to particles in the water. It also gives a much clearer edge for the edge detector.
+
+
+\item Run edge detection
+
+We run edge detection on the reduced image. This is done with the function cv2.Canny within the OpenCV python package. The function blurs the image slightly, then looks for edges by calculating the gradient for the intensity and seeing how it changes when it moves around in the image. If the gradient is above a certain threshold $t_{max}$ in an area this is marked as an edge. If it is below a certain threshold $t_{min}$ it is not marked as an edge. If it is between $t_{min}$ and $t_{max}$ but connected to an edge above the theshold $t_{max}$ it is marked as an edge. The cv2.Canny function has a couple of other processing steps, but this is a good general description of how it works. We set the thresholds $t_{min}$, $t_{max}$ as $t_{min} = \Sexpr{t_min}$, $t_{max} = \Sexpr{t_max}$. This was done manually based on the results each combination of values gives, but fitting values for these thresholds might be a good option for the future.
+
+\item Dilate edges and look for contours
+
+We take the edges found via edge detection and thicken them a little bit, in case there are any small gaps within an edge. This thickening is done by a $\Sexpr{dilation} \times \Sexpr{dilation}$ kernel. The resulting image shows the edges as thickened white lines on a black background. A contour in this image is a curve joining all the continuous points (along the boundary), having same color or intensity - in our case this is the edges detected by cv2.Canny. Any corals or sponges in our image then will be contained in a closed contour. We can then extract the areas enclosed by the closed contours in the image. Images with some corals and sponges are likely to have areas in a similar range, and we can use this to try and detect the presence/absence of biotic material. 
+
+\item Extract area data from closed contours
+
+Once we have the contour information from the image we can calculate the area of each closed contour. We extract some summary information from these areas; min area, max area, mean area, median area, number of closer contours, standard deviation of areas etc. We expect images that have presence of biotic material to have a particular signature in this space (a few large closed contours), and images with no bioticic material to have another signature (no closed contours, or very small closed contours). We use this data to train an algorithm to classify the clear images based on presence/absence of biotic material.
+
+\end{enumerate}
+
+
+\section{Presence/Absence of biotic material classification}
+
+We examined the $\Sexpr{sum(data_train$ImageClarity == "Clear")}$ clear images and classified them according the presence/absence of biotic material. An image is classified as having biotic material present if any plant or animal life can be seen within the image upon visual inspection. This can include corals, sponges, seaweed, fish, crabs etc. The following table shows these classifications and the frequency at which they occur within the clear images:
+
+<<echo=FALSE,results='asis'>>=
+require(xtable)
+setwd(master_dir)
+load("data_train.RData")
+data_train[is.na(data_train) == TRUE | data_train == ""] <- "NA"
+data_train <- data_train[data_train$ImageClarity == "Clear", ]
+require(plyr)
+ImageClarity_freq <- ddply(.data = data_train, .variables = .(BioticMaterial), .fun = summarise, Freq = length(ImageClarity))
+ImageClarity_freq <- xtable(ImageClarity_freq)
+print(ImageClarity_freq, table.placement="!h")
+@
+
+We combine this classification with the area data from the closed contours and see if we can train a machine learning algorithm to automatically do the classification. The data was randomly split into two groups: a training set consisting of $\frac{2}{3}$ of the data, and a test set consisting of the remaining $\frac{1}{3}$ of the data. The algorithm is trained on the training set then tested on the test set. This was done $\Sexpr{N}$ times and the algorithm was evaluated on how many audio files it correctly classified in each test set.
+
+We trained a few different algorithms; an artificial neural network, a random forest, a naive Bayes classifier and a crude algorithm that simply looks for the class that occurred with the highest frequency in the training set and classifies everything as this (in this case; \Sexpr{ifelse(ImageClarity_freq[which.max(ImageClarity_freq$Freq), 1] == 1, "Biotic", "Non-biotic")}). The results were as follows:
+
+<<echo=FALSE,results='hide'>>=
+require(xtable)
+setwd(master_dir)
+load("per_correct_videoBioticMaterial.RData")
+per_correct_arnns = per_correct_resu[["per_correct_arnns"]]
+per_correct_rndfs = per_correct_resu[["per_correct_rndfs"]]
+per_correct_nbays = per_correct_resu[["per_correct_nbays"]]
+per_correct_modes = per_correct_resu[["per_correct_modes"]]
+ATR <- 
+  data.frame(Names = c("Artificial neural network", 
+                     "Random forest", 
+                     "Naive bayes classifer", 
+                     "Crude mode classifer"), 
+          Per_correct = c(mean(per_correct_arnns), 
+                          mean(per_correct_rndfs), 
+                          mean(per_correct_nbays), 
+                          mean(per_correct_modes)))
+ATR <- xtable(ATR)
+print(ATR, table.placement="!h")
+@
+
+\pagebreak
+
+% test accuracy of classification algorithm
+
+% Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph Paragraph 
+
+% \pagebreak
+
+\tikzset{
+   block_full/.style ={rectangle, draw=black, thick, fill=white,
+      text width=10em, text ragged, minimum height=4em, inner sep=6pt},
+    block_left/.style ={rectangle, draw=black, thick, fill=white,
+      text width=20em, text ragged, minimum height=4em, inner sep=6pt},
+    block_noborder/.style ={rectangle, draw=none, thick, fill=none,
+      text width=50em, text centered, minimum height=1em, inner sep=6pt},
+    block_assign/.style ={rectangle, draw=black, thick, fill=white,
+      text width=12em, text centered, minimum height=3em, inner sep=6pt},
+      line/.style ={draw, very thin, -latex', shorten >=0pt},
+}
+
+\sffamily
+\footnotesize
+
+\begin{center}
+\begin{tikzpicture}[node distance=3mm]
+
+  \node [block_noborder, text width=40em,] (Empty) {};
+
+  \node [block_full, text width=10em, below=of Empty.south west, anchor=north west ] (VideoA) {
+  Video A: \\
+  \h Frame 1 \\
+  \h Frame 2 \\
+  \h \dots };
+  
+  \node [block_full, text width=10em, below=of Empty] (VideoB) {
+  Video B: \\
+  \h Frame 1 \\
+  \h Frame 2 \\
+  \h \dots };
+  
+  \node [block_full, text width=10em, below=of Empty.south east, anchor=north east ] (VideoC) {
+  Video C: \\
+  \h Frame 1 \\
+  \h Frame 2 \\
+  \h \dots };
+
+  \node [block_noborder, text width=40em, below=of VideoB] (BestFrame) {
+    Calculate average image from all frames in the video.
+    };
+
+  \node [block_full, text width=10em, below=of BestFrame.south west, anchor=north west ] (VideoFrameA) {
+  Video Frame A
+  };
+  
+  \node [block_full, text width=10em, below=of BestFrame] (VideoFrameB) {
+  Video Frame B
+  };
+  
+  \node [block_full, text width=10em, below=of BestFrame.south east, anchor=north east ] (VideoFrameC) {
+  Video Frame C
+  };
+
+  \node [block_noborder, text width=40em, below=of VideoFrameB] (aggframesData) {
+    Write frames to a table, with frame as rows and r, g, b for each pixel as columns.
+    };
+
+  \node [block_noborder, text width=40em, below=of aggframesData] (framesData) {
+  \begin{center}
+    \begin{tabular}{ c | c c c c}
+      \hline
+                      & Pixel 1 Blue  & Pixel 1 Green & Pixel 1 Red & \dots \\
+      \hline
+      Video Frame A   & \dots         & \dots         & \dots       & \dots \\
+      Video Frame B   & \dots         & \dots         & \dots       & \dots \\
+      Video Frame C   & \dots         & \dots         & \dots       & \dots \\
+      \hline
+    \end{tabular}
+  \end{center}
+    };
+
+  \node [block_noborder, text width=40em, below=of framesData] (PCA) {
+    Do a principal component analysis to reduce the dimension
+    };
+
+  \node [block_noborder, text width=40em, below=of PCA] (prx) {
+  \begin{center}
+    \begin{tabular}{ c | c c c c}
+      \hline
+                      & PrComp 1  & PrComp 2  & PrComp 3  & \dots \\
+      \hline
+      Video Frame A   & \dots     & \dots     & \dots     & \dots \\
+      Video Frame B   & \dots     & \dots     & \dots     & \dots \\
+      Video Frame C   & \dots     & \dots     & \dots     & \dots \\
+      \hline
+    \end{tabular}
+  \end{center}
+    };
+    
+  \node [block_noborder, text width=40em, below=of prx] (Merge) {
+    Merge with video log data
+    };
+    
+  \node [block_full, text width=40em, below=of Merge] (MergedData) {
+  Data table
+  \begin{center}
+    \begin{tabular}{ c | c c c c | c }
+      \hline
+                      & PrComp 1   & PrComp 2 & PrComp 3 & \dots & DominantSubstrate\\
+      \hline
+      Video Frame A   & \dots                   & \dots                 & \dots                 & \dots & Bedrock\\
+      Video Frame B   & \dots                   & \dots                 & \dots                 & \dots & Mud\\
+      Video Frame C   & \dots                   & \dots                 & \dots                 & \dots & Gravel\\
+      \hline
+    \end{tabular}
+  \end{center}
+    };
+    
+  \node [block_noborder, text width=10em, below=of MergedData.south west, anchor=north west ] (TrainSub) {
+  Take random 2/3 subset of data
+  };
+  
+  \node [block_noborder, text width=10em, below=of MergedData.south, anchor=north ] (Empty2) {
+   .\\
+   .\\
+   };
+  
+  \node [block_noborder, text width=10em, below=of MergedData.south east, anchor=north east ] (TestSub) {
+  Take remaining 1/3 subset of data
+  };
+  
+  \node [block_full, text width=10em, minimum height=5em, below=of TrainSub.south west, anchor=north west ] (TrainData) {
+  Train machine learning algorithm: \\
+  asfasfasf \\
+  afasf \\
+  asad \\
+  as d \\
+  asd \\
+  asd \\
+  };
+  
+  \node [block_full, text width=10em, minimum height=5em, right=of TrainData ] (Input) {
+  Input \\
+  asfasfasf \\
+  afasf \\
+  asad \\
+  as d \\
+  asd \\
+  asd \\
+  asd \\
+  };
+  
+  \node [block_full, text width=15em, minimum height=5em, below=of TestSub.south east, anchor=north east ] (TestData) {
+  Data table
+  \begin{center}
+    \begin{tabular}{ c | c c | c }
+      \hline
+                      & PC1   & \dots & DS\\
+      \hline
+      VFA   & \dots & \dots & Bedrock\\
+      VFB   & \dots & \dots & Mud\\
+      VFC   & \dots & \dots & Gravel\\
+      \hline
+    \end{tabular}
+  \end{center}
+  };
+
+  \node [block_full, text width=20em, below=of Input] (Validate) {
+  Validate \\
+  asfasfasf \\
+  afasf \\
+  asad \\
+  as d \\
+  asd \\
+  };
+
+  \draw[->] (VideoA) -- (BestFrame.north-|VideoA);
+  \draw[->] (VideoB) -- (BestFrame.north-|VideoB);
+  \draw[->] (VideoC) -- (BestFrame.north-|VideoC);
+  \draw[->] (BestFrame.south-|VideoFrameA) -- (VideoFrameA);
+  \draw[->] (BestFrame.south-|VideoFrameB) -- (VideoFrameB);
+  \draw[->] (BestFrame.south-|VideoFrameC) -- (VideoFrameC);
+  \draw[->] (VideoFrameA) -- (aggframesData.north-|VideoFrameA);
+  \draw[->] (VideoFrameB) -- (aggframesData.north-|VideoFrameB);
+  \draw[->] (VideoFrameC) -- (aggframesData.north-|VideoFrameC);
+  \draw[->] (aggframesData.south-|VideoFrameA) -| (framesData.north);
+  \draw[->] (aggframesData.south-|VideoFrameB) -| (framesData.north);
+  \draw[->] (aggframesData.south-|VideoFrameC) -| (framesData.north);
+  \draw[->] (framesData) -- (PCA);
+  \draw[->] (PCA) -- (prx);
+  \draw[->] (prx) -- (Merge);
+  \draw[->] (Merge) -- (MergedData);
+  \draw[->] (MergedData.south-|TrainSub) -| (TrainSub.north);
+  \draw[->] (MergedData.south-|TestSub) -| (TestSub.north); 
+  \draw[->] (TrainSub.south-|TrainSub) -| (TrainData);
+  \draw[->] (TestSub) -- (TestData.north-|TestSub);
+  \draw[->] (TestData.west|-Input) -- (Input); 
+  \draw[->] (TrainData) -- (Input); 
+  \draw[->] (Input) -- (Validate); 
+
+  ; 
+  
+\end{tikzpicture}
+\end{center}
+\end{document}
