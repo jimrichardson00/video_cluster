@@ -370,10 +370,10 @@ for(o in seq(1, length(Outputs), 1)) {
 
   # print mean percent correct for each classifier
   print(Outputs[o])
-  print(paste("per correct arnn", " ", round(mean(per_correct_arnns), digits = 3), " ", "false pos arnn", round(mean(false_pos_arnns), digits = 3), " ", "false neg arnn", round(mean(false_neg_arnns), digits = 3), sep = ""))
-  print(paste("per correct rndf", " ", round(mean(per_correct_rndfs), digits = 3), " ", "false pos rndf", round(mean(false_pos_rndfs), digits = 3), " ", "false neg rndf", round(mean(false_neg_rndfs), digits = 3), sep = ""))
-  print(paste("per correct nbay", " ", round(mean(per_correct_nbays), digits = 3), " ", "false pos nbay", round(mean(false_pos_nbays), digits = 3), " ", "false neg nbay", round(mean(false_neg_nbays), digits = 3), sep = ""))
-  print(paste("mode", " ", mean(per_correct_modes), sep = ""))
+  print(paste("per_correct_arnn: ", formatC(round(mean(per_correct_arnns), digits = 3), format = "f", digits = 3), ", false_pos_arnn: ", formatC(round(mean(false_pos_arnns), digits = 3), format = "f", digits = 3), ", false_neg_arnn: ", formatC(round(mean(false_neg_arnns), digits = 3), format = "f", digits = 3), sep = ""))
+  print(paste("per_correct_rndf: ", formatC(round(mean(per_correct_rndfs), digits = 3), format = "f", digits = 3), ", false_pos_rndf: ", formatC(round(mean(false_pos_rndfs), digits = 3), format = "f", digits = 3), ", false_neg_rndf: ", formatC(round(mean(false_neg_rndfs), digits = 3), format = "f", digits = 3), sep = ""))
+  print(paste("per_correct_nbay: ", formatC(round(mean(per_correct_nbays), digits = 3), format = "f", digits = 3), ", false_pos_nbay: ", formatC(round(mean(false_pos_nbays), digits = 3), format = "f", digits = 3), ", false_neg_nbay: ", formatC(round(mean(false_neg_nbays), digits = 3), format = "f", digits = 3), sep = ""))
+  print(paste("per_correct_mode: ", formatC(round(mean(per_correct_modes), digits = 3), format = "f", digits = 3), ", false_pos_mode: ", formatC(round(mean(false_pos_modes), digits = 3), format = "f", digits = 3), ", false_neg_mode: ", formatC(round(mean(false_neg_modes), digits = 3), format = "f", digits = 3), sep = ""))
   print("")
 
 }
@@ -381,6 +381,15 @@ for(o in seq(1, length(Outputs), 1)) {
 # saves percent correct information
 print(paste("per_correct_video", year, paste(Outputs, collapse = ""), ".RData", sep = ""))
 save(per_correct_resu, file = paste("per_correct_video", year, paste(Outputs, collapse = ""), ".RData", sep = ""))
+
+# saves false positive information
+print(paste("false_pos_video", year, paste(Outputs, collapse = ""), ".RData", sep = ""))
+save(false_pos_resu, file = paste("false_pos_video", year, paste(Outputs, collapse = ""), ".RData", sep = ""))
+
+# saves false negative information
+print(paste("false_neg_video", year, paste(Outputs, collapse = ""), ".RData", sep = ""))
+save(false_neg_resu, file = paste("false_neg_video", year, paste(Outputs, collapse = ""), ".RData", sep = ""))
+
 
 # # random forest
 # require(randomForest)
