@@ -1,35 +1,76 @@
-require(parallel)
-n_cores = detectCores(all.tests = FALSE, logical = FALSE) - 1
+#-------------------------------------------------------------
+#
+#  Author:    Jim Richardson
+#  Project:   Video classification algorithm for ocean-floor fish trap video
+#  Written:   Apr 2015
+#
+#  Goal:      Automatic classification of video taken from cameras attached
+#             to fish traps placed on ocean floor. Algorithm has two stages:
+#               1) Classify video into Clear/Cloudy
+# 
+#               2) Classify clear video into Presence/Absence of biotic material
+#
+#-------------------------------------------------------------
 
+#-------------------------------------------------------------
+# control parameters
+
+# sets cores as n_cores = number of available cores - 1
+require(parallel)
+n_cores = detectCores(all.tests = FALSE, logical = FALSE) - 1  # n_cores = # cores for parallel
 require(doParallel)
 registerDoParallel(cores = n_cores)
 
-W = 230
-H = 177
-Wgp = 1920
-Hgp = 1080
-skip = 6
-year = ""
-# year = "STRS2013"
-# year = "STRS2014"
-# year = "SKBO2013"
-# year = "SKBO2014"
-mac = TRUE
+Wgp = 1920  # width of gopro video frames in pixels
+Hgp = 1080  # height of gopro video frames in pixels
+W = 230   # width of resized video frame (after trap removal)
+H = 177   # height of resized vidoe frame (after trap removal)
+skip = 6  # number of seconds to skip on video (camera light takes ~6 seconds to turn on)
+# x1, x2, y1, y2: inputs for trap removal
+x1 = 0.26041666666
+x2 = 0.73958333334
+y1 = 1.0
+y2 = 0.34444444444
+# P: sets the minimum cut-off for classification.
+# classification returns a probablity for each class, there are two options:
+#   1) default option is to classify video according to class with highest probability
+#   2) can preset min cut off, for example can set P_var = "Clear", P_val = 0.2
+#       then videos classified as Clear with probability >= 20% will be classified as Clear.
+# option 2 is used to reduce false negatives
+P = data.frame( 
+  P_Outputs = c("ImageClarity", "BioticMaterial") 
+  , P_var = c(NA, NA) 
+  , P_val = c(NA, NA) 
+  ) 
+# sets trip id (STRS, SKBO) and year (2013, 2014..). set year = "" for all data
+year = "" 
+# year = "STRS2013" 
+# year = "STRS2014" 
+# year = "SKBO2013" 
+# year = "SKBO2014" 
+mac = TRUE  # mac = TRUE/FALSE. TRUE for running on mac, avoids parallel processing (there is a bug when ran with parallel processing on mac) and sets working directory
 # mac = FALSE
-if(mac == TRUE) {
-  master_dir = "/Users/jimrichardson/Dropbox/REM/Tasks/video_cluster"
-  } else {
-  master_dir = "/home/jim/Dropbox/REM/Tasks/video_cluster"
-}
-frame_dir = paste(master_dir, "/frame", year, sep = "")
-coral_dir = paste(master_dir, "/coral", year, sep = "")
-video_dir = paste(master_dir, "/video", year, sep = "")
-audio_dir = paste(master_dir, "/audio", year, sep = "")
-proje_dir = paste(master_dir, "/proje", year, sep = "")
-clust_dir = paste(master_dir, "/clust", year, sep = "")
-eigen_dir = paste(master_dir, "/eigen", year, sep = "")
+# if mac = TRUE/FALSE sets working directory
+if(mac == TRUE) { 
+  master_dir = "/Users/jimrichardson/Dropbox/REM/Tasks/video_cluster" # sets master working directory
+  } else { 
+  master_dir = "/home/jim/Dropbox/REM/Tasks/video_cluster" # sets master working directory
+} 
+frame_dir = paste(master_dir, "/frame", year, sep = "") # sets frame directory (jpgs of video frames)
+video_dir = paste(master_dir, "/video", year, sep = "") # sets video directory (contains video files)
+proje_dir = paste(master_dir, "/proje", year, sep = "") # sets proje directory (contains projections of video frames onto principal components)
+clust_dir = paste(master_dir, "/clust", year, sep = "") # sets clust directory (contains manually and automatically identified classifications)
+eigen_dir = paste(master_dir, "/eigen", year, sep = "") # sets eigen directory (contains eigenvectors from pca as .jpg files)
 
-# --------------------------------------------------
+# --------------------------------------------
+# sources functions needed
+setwd(master_dir)
+source("Video_functions.r")
+
+# --------------------------------------------
+# opens dialogue box named 'Initial run' with the following options:
+# Y - Yes it is the initial run. This option will deleted all .txt files, .RData files, and clust_dir
+# N - No this is not the initial run. This will determine the current videos and the new video files, then adds the new video files (without rerunning the current videos)
 
 require(tcltk)      # Load the TclTk package
 tt <- tktoplevel()  # Create a new toplevel window
@@ -71,14 +112,6 @@ if(inital_run == TRUE) {
   source("Video_cleaning.r")
 }
 
-# setwd(master_dir)
-# source("Video_cleaning.r")
-
-# --------------------------------------------
-# sources functions needed
-setwd(master_dir)
-source("Video_functions.r")
-
 # --------------------------------------------
 # The code will copy a video file GOPRdddd.MP4 with trip code STRS2013 (for example) and folder SetXXXTrapYYYCameraZZZ into video_dir with filename: STRS2013_SXXXTYYYCZZZ_GOPRdddd.MP4. 
 
@@ -97,13 +130,13 @@ from_idxs = c(
   "SKBO2014"
   )
 setwd(master_dir)
-source("Video_prepfile.r")
+# source("Video_prepfile.r")
 
 # --------------------------------------------
 # Calculates average frame for each video, skipping the first few seconds (can customize this with variable 'skip'). Writes frame to frame_dir as a jpg.
 
 setwd(master_dir)
-source("Video_frames.r")
+# source("Video_frames.r")
 
 # --------------------------------------------
 # For new files in frame_dir; removes trap, resizes frame, copies the data from the resulting image into a matrix.
@@ -166,61 +199,21 @@ if(inital_run == TRUE) {
 # Prints and saves results.
 
 setwd(master_dir)
-N = 10
 
+N = 10
 Outputs <- c("ImageClarity")
 
 source("Video_training_data.r")
 source("Video_training.r")
 
 # ----------------------------------------
-# if there is new data, run rndf on it
+# Run: Video_ImageClarity.r
+# Reads in data_train and checks if there are any video files with ImageClarity = NA
+# If ImageClarity = NA, video file has not been classfied, stores these files as newdata
+# Loads each classifier and runs it on newdata
+# Copies classifications for each video in newdata to (clust_dir)/new/Clear_(classifier_name)
 
-load(file = paste("data_train", year, ".RData", sep = ""))
-newdata <- data_train[is.na(data_train[, "ImageClarity"]) == TRUE, ]
-
-print(paste("New frames to run ImageClarity classifier on: ", nrow(newdata), sep = ""))
-
-if(nrow(newdata) > 0) {
-
-  load(paste("rndf_video", year, "ImageClarity.RData", sep = ""))
-
-  newdata <- data_train[is.na(data_train[, "ImageClarity"]) == TRUE, ]
-  newdata$Filenames
-
-  classifier <- "rndf"
-  for(classifier in c("rndf", "arnn", "nbay")) {
-
-    load(paste(classifier, "_video", year, "ImageClarity.RData", sep = ""))
-
-    Clear_classifier <- newdata$Filenames[predict(object = classifier, newdata = newdata[, as.vector(na.omit(str_match(names(newdata), "Princ.+")))]) == "Clear"]
-    Clear_classifier
-
-    Cloudy_classifier <- newdata$Filenames[predict(object = rndf, newdata = newdata[, as.vector(na.omit(str_match(names(newdata), "Princ.+")))]) == "Cloudy"]
-    Cloudy_classifier
-
-    # deletes cluster folder, then creates it (aviods overlap)
-    system(paste("rm -r ", clust_dir, "/new/Clear_", classifier, sep = ""))
-    system(paste("mkdir ", clust_dir, "/new/Clear_", classifier, sep = ""))
-
-    # deletes cluster folder, then creates it (aviods overlap)
-    system(paste("rm -r ", clust_dir, "/new/Cloudy_", classifier, sep = ""))
-    system(paste("mkdir ", clust_dir, "/new/Cloudy_", classifier, sep = ""))
-
-    jpg <- Clear_classifier[1]
-    for(jpg in newdata$Filenames) {
-      if(jpg %in% Clear_classifier) {
-        from_dir = paste(clust_dir, "/new", sep = "")
-        dest_dir = paste(clust_dir, "/new/Clear_", classifier, sep = "")
-        system(paste("cp ", from_dir, "/", jpg, ".jpg", " ", dest_dir, sep = ""))
-      } else if(jpg %in% Cloudy_classifier) {
-        from_dir = paste(clust_dir, "/new", sep = "")
-        dest_dir = paste(clust_dir, "/new/Cloudy_", classifier, sep = "")
-        system(paste("cp ", from_dir, "/", jpg, ".jpg", " ", dest_dir, sep = ""))
-      }
-    }
-  }
-}
+source("Video_ImageClarity.r")
 
 # ----------------------------------------
 # if classifier does exist, make adjustment
@@ -241,6 +234,7 @@ if(inital_run == FALSE) {
   if(button == 'ok'){
 
     setwd(master_dir)
+
     N = 10
     Outputs <- c("ImageClarity")
     source("Video_training_data.r")
@@ -283,8 +277,8 @@ if(inital_run == TRUE) {
 # or train video data
 
 setwd(master_dir)
-N = 10
 
+N = 1000
 Outputs <- c("BioticMaterial")
 
 source("Video_training_data.r")
@@ -293,49 +287,59 @@ source("Video_training.r")
 # ----------------------------------------
 # if BioticMaterial rndf exists, run on new data
 
-load(paste("data_video", year, ".RData", sep =""))
-newdata <- data[is.na(data[, "ImageClarity"]) == FALSE 
-  & data[, "ImageClarity"] == "Clear" 
-  & is.na(data[, "BioticMaterial"]) == TRUE
+load(paste("data_train", year, ".RData", sep =""))
+newdata <- data_train[is.na(data_train[, "ImageClarity"]) == FALSE 
+  & data_train[, "ImageClarity"] == "Clear" 
+  & is.na(data_train[, "BioticMaterial"]) == TRUE
   , ]
 
 print(paste("New frames to run BioticMaterial classifier on: ", nrow(newdata), sep = ""))
 
 if(nrow(newdata) > 0) {
 
-  load(paste("rndf_video", year, "BioticMaterial.RData", sep = ""))
-  load(paste("data_video", year, ".RData", sep = ""))
+  classifier_name <- "rndf"
+  for(classifier_name in c("rndf", "arnn", "nbay")) {
 
-  Presence_rdnf <- newdata$Filenames[predict(object = rndf, newdata = newdata[, as.vector(na.omit(str_match(names(newdata), "Areas.+")))]) == "Presence"]
-  Presence_rdnf
+    load(paste(classifier_name, "_video", year, "BioticMaterial.RData", sep = ""))
+    assign("classifier", as.formula(classifier_name))
 
-  Absence_rdnf <- newdata$Filenames[predict(object = rndf, newdata = newdata[, as.vector(na.omit(str_match(names(newdata), "Areas.+")))]) == "Absence"]
-  Absence_rdnf
+    Pred_class <- Pred_class(classifier_name = classifier_name,
+      classifier = classifier,
+      newdata = newdata, 
+      Outputs = Outputs,
+      P_var = P_var,
+      P_val = P_val)
 
-  # deletes cluster folder, then creates it (aviods overlap)
-  system(paste("rm -r ", clust_dir, "/new/Clear", sep = ""))
-  system(paste("mkdir ", clust_dir, "/new/Clear", sep = ""))
-  system(paste("rm -r ", clust_dir, "/new/Clear/Presence_rdnf", sep = ""))
-  system(paste("mkdir ", clust_dir, "/new/Clear/Presence_rdnf", sep = ""))
-  system(paste("rm -r ", clust_dir, "/new/Clear/Absence_rdnf", sep = ""))
-  system(paste("mkdir ", clust_dir, "/new/Clear/Absence_rdnf", sep = ""))
+    Presence_classifier <- newdata$Filenames[Pred_class == "Presence"]
+    Presence_classifier
 
-  # copies over from clear
-  for(jpg in newdata$Filenames) {
-    from_dir = paste(clust_dir, "/cur/Clear", sep = "")
+    Absence_classifier <- newdata$Filenames[Pred_class == "Absence"]
+    Absence_classifier
 
-    dest_dir = paste(clust_dir, "/new/Clear", sep = "")
-    system(paste("cp ", from_dir, "/", jpg, ".jpg", " ", dest_dir, sep = ""))
+    # deletes cluster folder, then creates it (aviods overlap)
+    system(paste("rm -r ", clust_dir, "/new/Clear", sep = ""))
+    system(paste("mkdir ", clust_dir, "/new/Clear", sep = ""))
+    system(paste("rm -r ", clust_dir, "/new/Clear/Presence_", classifier_name, "_P_val", round(P_val, 2), sep = ""))
+    system(paste("mkdir ", clust_dir, "/new/Clear/Presence_", classifier_name, "_P_val", round(P_val, 2), sep = ""))
+    system(paste("rm -r ", clust_dir, "/new/Clear/Absence_", classifier_name, "_P_val", round(P_val, 2), sep = ""))
+    system(paste("mkdir ", clust_dir, "/new/Clear/Absence_", classifier_name, "_P_val", round(P_val, 2), sep = ""))
 
-    if(jpg %in% Presence_rdnf) {
-      dest_dir = paste(clust_dir, "/new/Clear/Presence_rdnf", sep = "")
+    # copies over from clear
+    for(jpg in newdata$Filenames) {
+
+      from_dir = paste(clust_dir, "/cur/Clear", sep = "")
+      dest_dir = paste(clust_dir, "/new/Clear", sep = "")
       system(paste("cp ", from_dir, "/", jpg, ".jpg", " ", dest_dir, sep = ""))
-    } else if(jpg %in% Absence_rdnf){
-      dest_dir = paste(clust_dir, "/new/Clear/Absence_rdnf", sep = "")
-      system(paste("cp ", from_dir, "/", jpg, ".jpg", " ", dest_dir, sep = ""))
+
+      if(jpg %in% Presence_rdnf) {
+        dest_dir = paste(clust_dir, "/new/Clear/Presence_", classifier_name, "_P_val", round(P_val, 2), sep = "")
+        system(paste("cp ", from_dir, "/", jpg, ".jpg", " ", dest_dir, sep = ""))
+      } else if(jpg %in% Absence_rdnf){
+        dest_dir = paste(clust_dir, "/new/Clear/Absence_", classifier_name, "_P_val", round(P_val, 2), sep = "")
+        system(paste("cp ", from_dir, "/", jpg, ".jpg", " ", dest_dir, sep = ""))
+      }
     }
   }
-
 }
 
 # ----------------------------------------
@@ -372,9 +376,8 @@ if(inital_run == FALSE) {
 # -----------------------------------------
 
 setwd(master_dir)
-N = 10
-N = 1000
 
+N = 10
 Outputs <- c("Species_")
 # Outputs <- c("Species_SAB")
 # Outputs <- c("Species_5AA")
