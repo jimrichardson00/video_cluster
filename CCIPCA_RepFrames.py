@@ -13,6 +13,18 @@ import math
 import numpy
 import gzip
 
+def Standardize_components( components_ ):
+
+  nrow = components_.shape[0]
+
+  for j in range(0, nrow):
+
+    if components_[j:(j+1), 0:1] < 0:
+
+      components_[j:(j+1), :] = -1*components_[j:(j+1), :]
+
+  return components_
+
 def CCIPCA_RepFrames( RepFrames_new, n_components, rerun, year, W, H ):
 
   # RepFrames_new = numpy.array(RepFrames_new)
@@ -28,6 +40,7 @@ def CCIPCA_RepFrames( RepFrames_new, n_components, rerun, year, W, H ):
     amnesic = int(float(numpy.loadtxt("amnesic" + year + ".txt")))
     copy = int(float(numpy.loadtxt("copy" + year + ".txt")))
     mean_ = numpy.loadtxt("mean_" + year + ".txt")  
+    
     components_ = numpy.loadtxt("components_" + year + ".txt")  
     components_ = numpy.transpose(components_)
     c0 = components_.shape[0]
@@ -36,12 +49,27 @@ def CCIPCA_RepFrames( RepFrames_new, n_components, rerun, year, W, H ):
     zeros[0:c0, 0:c1] = components_
     components_ = zeros
 
+    RepFrames_cur = numpy.loadtxt("RepFrames_cur" + year + ".txt")
+    RepFrames_cur = numpy.transpose(RepFrames_cur)  
+    r_cur = RepFrames_cur.shape[0]
+    r_new = RepFrames_new.shape[0]
+    r = r_cur + r_cur
+    c = 3*W*H
+    empty = numpy.empty((r, c))
+    empty[0:r_cur, :] = RepFrames_cur
+    empty[r_cur:r, :] = RepFrames_new
+    RepFrames_cur = empty
+
     # ccipca.n_components = n_components  
     ccipca.iteration = iteration 
     ccipca.amnesic = amnesic
     ccipca.copy = copy  
     ccipca.mean_ = mean_  
     ccipca.components_ = components_
+
+  else:
+
+    RepFrames_cur = RepFrames_new
 
   ccipca = ccipca.fit(RepFrames_new)
 
@@ -73,11 +101,22 @@ def CCIPCA_RepFrames( RepFrames_new, n_components, rerun, year, W, H ):
   print 'mean_'
   numpy.savetxt('mean_' + year + '.txt', mean_)
 
+  ccipca.components_ <- Standardize_components(ccipca.components_)
   components_ = ccipca.components_
   components_ = numpy.array(components_)
   components_ = numpy.transpose(components_)
   print 'components_'
   numpy.savetxt('components_' + year + '.txt', components_)
+
+  prx =  ccipca.transform(RepFrames_cur)
+  prx = numpy.array(prx)
+  print 'prx'
+  numpy.savetxt('prx' + year + '.txt', prx)
+
+  RepFrames_cur = numpy.array(RepFrames_cur)
+  RepFrames_cur = numpy.transpose(RepFrames_cur)
+  print 'RepFrames_cur'
+  numpy.savetxt('RepFrames_cur' + year + '.txt', RepFrames_cur)
 
 # --------------------------------------------------
 
@@ -99,7 +138,7 @@ def CCIPCA_RepFrames( RepFrames_new, n_components, rerun, year, W, H ):
   # components_ = json.loads(json.dumps(components_.tolist()))
   # ccipca_dict["components_"] = components_
 
-  # prx =  ccipca.transform(RepFrames_new)
+  # prx =  ccipca.transform(RepFrames_cur)
   # prx = numpy.array(prx)
   # prx = json.loads(json.dumps(prx.tolist()))
   # ccipca_dict["prx"] = prx
