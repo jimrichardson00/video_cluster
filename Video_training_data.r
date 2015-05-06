@@ -16,10 +16,11 @@
 # -------------------------------------
 
 # -------------------------------------
-# - Code loads ccipca data
+# - Loads ccipca data
 
 # load ccipca data
-load(paste("ccipca_video", year, ".RData", sep = ""))
+prx <- read.table(paste("prx", year, ".txt", sep = ""))
+video_files_cur <- as.vector(read.table(paste("video_files_cur", year, ".txt", sep = ""))[, 1])
 
 # -------------------------------------
 # - Creates new data set containing video_file name, Princ1, Princ2,.. and the following columns:
@@ -33,8 +34,6 @@ load(paste("ccipca_video", year, ".RData", sep = ""))
 #   For remaining .jpg, mark as Presence
 
 # load reduced dimension data set
-prx <- ccipca[["prx"]]
-video_files_cur <- ccipca[["video_files_cur"]]
 prx <- as.data.frame(prx)
 names(prx) <- paste("Princ", seq(1, ncol(prx), 1), sep = "")
 
@@ -50,7 +49,7 @@ for(j in 1:ncol(prx)) {
 }
 
 # create Filenames column in prx
-prx$Filenames <- ccipca[["video_files_cur"]]
+prx$Filenames <- video_files_cur
 
 # sets Clear as list of files in (clust_dir)/cur/Clear
 Clear <- character(0)
@@ -60,7 +59,7 @@ tryCatch({
   },
   error = function(e) {cat("ERROR :",conditionMessage(e), "\n")}
   )
-
+  
 # sets ImageClarity_validated as list of files in (clust_dir)/cur/ImageClarity_validated
 ImageClarity_validated <- character(0)
 tryCatch({
