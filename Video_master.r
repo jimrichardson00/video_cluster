@@ -48,8 +48,8 @@ year = ""
 # year = "STRS2014" 
 # year = "SKBO2013" 
 # year = "SKBO2014" 
-mac = TRUE  # mac = TRUE/FALSE. TRUE for running on mac, avoids parallel processing (there is a bug when ran with parallel processing on mac) and sets working directory
-# mac = FALSE
+# mac = TRUE  # mac = TRUE/FALSE. TRUE for running on mac, avoids parallel processing (there is a bug when ran with parallel processing on mac) and sets working directory
+mac = FALSE
 # if mac = TRUE/FALSE sets working directory
 if(mac == TRUE) { 
   master_dir = "/Users/jimrichardson/Dropbox/REM/Tasks/video_cluster" # sets master working directory
